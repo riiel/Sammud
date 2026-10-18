@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sammuring – Tee 10 000 sammu täis</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --blue: #3b82f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+
+    /* Ülemine juhtpaneel */
+    .panel {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .title { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .title span { color: var(--accent); }
+
+    .gps-btn {
+      background: #334155;
+      color: var(--text);
+      border: 1px solid #475569;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .gps-btn:active { transform: scale(0.97); }
+
+    /* Sisendite rida */
+    .inputs-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 0.8fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-group input, .input-group select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .input-group input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    /* Statistika ja valikud */
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 8px 10px;
+      border-radius: 8px;
+    }
+
+    .stats-highlight { color: var(--accent); font-weight: 700; }
+
+    .buffer-toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    /* Tegevusnupud */
+    .actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 8px;
+    }
+
+    select.dir-select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .generate-btn {
+      background: var(--accent);
+      color: #052e16;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .generate-btn:hover { background: var(--accent-hover); }
+    .generate-btn:disabled { opacity: 0.5; cursor: wait; }
+
+    /* Kaart */
+    #map { flex: 1; width: 100%; z-index: 1; }
+
+    /* Alumine tulemuse kaart */
+    .result-bar {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      background: rgba(30, 41, 59, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    .result-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .result-main { font-size: 1rem; font-weight: 700; }
+    .result-sub { font-size: 0.8rem; color: var(--muted); }
+
+    .result-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 8px;
+    }
+
+    .next-btn {
+      background: #334155;
+      color: var(--text);
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .gmaps-btn {
+      background: var(--blue);
+      color: white;
+      text-decoration: none;
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="panel">
+    <div class="header-row">
+      <div class="title">👟 Sammu<span>ring</span></div>
+      <button class="gps-btn" id="gpsBtn" onclick="locateUser()">📍 Minu asukoht</button>
+    </div>
+
+    <div class="inputs-grid">
+      <div class="input-group">
+        <label>Tehtud sammud</label>
+        <input type="number" id="currentSteps" value="7733" inputmode="numeric" oninput="updateTargetStats()" />
+      </div>
+      <div class="input-group">
+        <label>Päeva eesmärk</label>
+        <input type="number" id="goalSteps" value="10000" inputmode="numeric" oninput="updateTargetStats()" />
+      </div>
+      <div class="input-group">
+        <label>Samm (cm)</label>
+        <input type="number" id="strideCm" value="76" inputmode="numeric" oninput="updateTargetStats()" />
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <div id="targetSummary">Puudu: <span class="stats-highlight">2267 sammu</span> (~1.81 km)</div>
+      <label class="buffer-toggle">
+        <input type="checkbox" id="bufferCheck" checked onchange="updateTargetStats()" />
+        +5% varu
+      </label>
+    </div>
+
+    <div class="actions-row">
+      <select id="directionSelect" class="dir-select">
+        <option value="random">🔄 Suvaline suund</option>
+        <option value="0">⬆️ Põhja poole</option>
+        <option value="90">➡️ Ida poole</option>
+        <option value="180">⬇️ Lõuna poole</option>
+        <option value="270">⬅️ Lääne poole</option>
+      </select>
+      <button class="generate-btn" id="genBtn" onclick="generateLoop()">
+        ⚡ Joonista ring
+      </button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="result-bar" id="resultBar">
+    <div class="result-info">
+      <div>
+        <div class="result-main" id="resSteps">+2410 sammu (1.83 km)</div>
+        <div class="result-sub" id="resTotal">Ringi järel kokku: 10 143 sammu • ~22 min</div>
+      </div>
+    </div>
+    <div class="result-buttons">
+      <button class="next-btn" onclick="rotateAndGenerate()">🎲 Proovi teist</button>
+      <a href="#" target="_blank" class="gmaps-btn" id="gmapsLink">🗺️ Ava Google Mapsis</a>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Vaikimisi alguspunkt (Pärnu kesklinn), mida saab klikiga või GPS-iga muuta
+    let startCoords = { lat: 58.3859, lon: 24.4971 };
+    let currentBearing = Math.floor(Math.random() * 360);
+    let targetMeters = 1800;
+
+    // Initsialiseerime kaardi
+    const map = L.map('map', { zoomControl: false }).setView([startCoords.lat, startCoords.lon], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    // Lohistatav alguspunkti marker
+    const startMarker = L.marker([startCoords.lat, startCoords.lon], { draggable: true }).addTo(map);
+    startMarker.bindPopup("<b>Algus ja lõpp</b><br>Lohista mind või kliki kaardile!").openPopup();
+
+    let routeLayer = null;
+    let waypointMarkers = [];
+
+    // Kaardil klikkimine muudab alguspunkti
+    map.on('click', (e) => {
+      setStartPoint(e.latlng.lat, e.latlng.lng);
+    });
+
+    startMarker.on('dragend', (e) => {
+      const pos = e.target.getLatLng();
+      setStartPoint(pos.lat, pos.lng);
+    });
+
+    function setStartPoint(lat, lon) {
+      startCoords = { lat, lon };
+      startMarker.setLatLng([lat, lon]);
+    }
+
+    // GPS asukoha küsimine
+    function locateUser() {
+      const btn = document.getElementById('gpsBtn');
+      if (!navigator.geolocation) {
+        alert("Sinu brauser ei toeta GPS-i.");
+        return;
+      }
+      btn.textContent = "⏳ Otsin...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          btn.textContent = "📍 Minu asukoht";
+          setStartPoint(pos.coords.latitude, pos.coords.longitude);
+          map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+        },
+        () => {
+          btn.textContent = "📍 Minu asukoht";
+          alert("Ei saanud GPS asukohta kätte. Vali punkt otse kaardil klikkides!");
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+
+    // Sammude ja distantsi arvutamine
+    function updateTargetStats() {
+      const current = parseInt(document.getElementById('currentSteps').value) || 0;
+      const goal = parseInt(document.getElementById('goalSteps').value) || 10000;
+      const strideCm = parseInt(document.getElementById('strideCm').value) || 76;
+      const addBuffer = document.getElementById('bufferCheck').checked;
+
+      let missingSteps = Math.max(0, goal - current);
+      if (addBuffer && missingSteps > 0) {
+        missingSteps = Math.round(missingSteps * 1.05);
+      }
+
+      targetMeters = Math.round(missingSteps * (strideCm / 100));
+      const km = (targetMeters / 1000).toFixed(2);
+      const mins = Math.round(targetMeters / 80); // ~4.8 km/h
+
+      const summaryEl = document.getElementById('targetSummary');
+      if (missingSteps === 0) {
+        summaryEl.innerHTML = `<span class="stats-highlight">🎉 Sammud on juba täis!</span>`;
+      } else {
+        summaryEl.innerHTML = `Vaja: <span class="stats-highlight">${missingSteps} sammu</span> (~${km} km / ${mins} min)`;
+      }
+    }
+
+    // Arvutab uue koordinaadi alguspunktist kauguse (m) ja nurga (kraadides) järgi
+    function offsetCoord(lat, lon, distanceMeters, bearingDeg) {
+      const rad = bearingDeg * (Math.PI / 180);
+      const dLat = (distanceMeters * Math.cos(rad)) / 111320;
+      const dLon = (distanceMeters * Math.sin(rad)) / (111320 * Math.cos(lat * (Math.PI / 180)));
+      return { lat: lat + dLat, lon: lon + dLon };
+    }
+
+    // Pärib OSRM mootorilt jalakäija marsruudi
+    async function fetchFootRoute(points) {
+      const coordString = points.map(p => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
+      const urls = [
+        `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${coordString}?overview=full&geometries=geojson`,
+        `https://router.project-osrm.org/route/v1/foot/${coordString}?overview=full&geometries=geojson`
+      ];
+
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.routes && data.routes.length > 0) return data;
+          }
+        } catch (e) {
+          // Proovime varuserverit
+        }
+      }
+      throw new Error("Marsruudiserveriga ei õnnestunud ühendust saada.");
+    }
+
+    function rotateAndGenerate() {
+      document.getElementById('directionSelect').value = 'random';
+      currentBearing = (currentBearing + 75) % 360;
+      generateLoop(true);
+    }
+
+    async function generateLoop(keepBearing = false) {
+      if (targetMeters < 150) {
+        alert("Puuduolev distants on liiga väike – tee paar tiiru ümber toa!");
+        return;
+      }
+
+      const btn = document.getElementById('genBtn');
+      btn.disabled = true;
+      btn.textContent = "⏳ Arvutan...";
+
+      try {
+        const dirVal = document.getElementById('directionSelect').value;
+        if (dirVal !== 'random') {
+          currentBearing = parseInt(dirVal);
+        } else if (!keepBearing) {
+          currentBearing = Math.floor(Math.random() * 360);
+        }
+
+        // Algne ringi raadius (arvestades tänavate siksak-koefitsienti ~6.8)
+        let radius = targetMeters / 6.8;
+        let routeData = null;
+
+        // Teeme kuni 2 iteratsiooni: 1. proovib raadiust, 2. skaleerib täpseks
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const center = offsetCoord(startCoords.lat, startCoords.lon, radius, currentBearing);
+          const p1 = offsetCoord(center.lat, center.lon, radius, currentBearing - 90);
+          const p2 = offsetCoord(center.lat, center.lon, radius, currentBearing);
+          const p3 = offsetCoord(center.lat, center.lon, radius, currentBearing + 90);
+
+          routeData = await fetchFootRoute([startCoords, p1, p2, p3, startCoords]);
+          const actualDist = routeData.routes[0].distance;
+
+          const errorRatio = Math.abs(actualDist - targetMeters) / targetMeters;
+          if (errorRatio <= 0.12 || actualDist === 0) {
+            break; // Piisavalt täpne!
+          }
+          // Kohandame raadiust vastavalt tegelikule tänavavõrgule
+          radius = radius * (targetMeters / actualDist);
+        }
+
+        renderRoute(routeData);
+      } catch (err) {
+        alert("Viga teekonna arvutamisel: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "⚡ Joonista ring";
+      }
+    }
+
+    function renderRoute(data) {
+      const route = data.routes[0];
+      const waypoints = data.waypoints;
+
+      if (routeLayer) map.removeLayer(routeLayer);
+      waypointMarkers.forEach(m => map.removeLayer(m));
+      waypointMarkers = [];
+
+      // Joonistame teekonna kaardile
+      routeLayer = L.geoJSON(route.geometry, {
+        style: { color: '#10b981', weight: 6, opacity: 0.9 }
+      }).addTo(map);
+
+      // Lisame suunapunktid (1, 2, 3), et näha mis pidi ring jookseb
+      [1, 2, 3].forEach((idx) => {
+        const wp = waypoints[idx].location; // [lon, lat]
+        const marker = L.circleMarker([wp[1], wp[0]], {
+          radius: 7,
+          fillColor: '#3b82f6',
+          color: '#fff',
+          weight: 2,
+          fillOpacity: 1
+        }).bindTooltip(`${idx}. punkt`, { permanent: false }).addTo(map);
+        waypointMarkers.push(marker);
+      });
+
+      map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+
+      // Arvutame tulemuse numbrid
+      const strideM = (parseInt(document.getElementById('strideCm').value) || 76) / 100;
+      const currentSteps = parseInt(document.getElementById('currentSteps').value) || 0;
+      const routeSteps = Math.round(route.distance / strideM);
+      const finalSteps = currentSteps + routeSteps;
+      const km = (route.distance / 1000).toFixed(2);
+      const mins = Math.round(route.distance / 80);
+
+      document.getElementById('resSteps').textContent = `+${routeSteps} sammu (${km} km)`;
+      document.getElementById('resTotal').textContent = `Kokku tuleb: ${finalSteps} sammu • ~${mins} min`;
+
+      // Ehitame Google Mapsi otselingi täpsete kõnnitee-punktidega
+      const wp1 = `${waypoints[1].location[1]},${waypoints[1].location[0]}`;
+      const wp2 = `${waypoints[2].location[1]},${waypoints[2].location[0]}`;
+      const wp3 = `${waypoints[3].location[1]},${waypoints[3].location[0]}`;
+      const origin = `${startCoords.lat},${startCoords.lon}`;
+      const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${origin}&waypoints=${wp1}|${wp2}|${wp3}&travelmode=walking`;
+
+      document.getElementById('gmapsLink').href = gmapsUrl;
+      document.getElementById('resultBar').style.display = 'block';
+    }
+
+    // Algne statistika käivitamisel
+    updateTargetStats();
+  </script>
+</body>
+</html>
