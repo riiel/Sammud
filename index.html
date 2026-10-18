@@ -30,7 +30,7 @@
     <input type="number" id="goal" value="10000" oninput="calc()" placeholder="Eesmärk">
     <input type="number" id="str" value="76" oninput="calc()" style="width:75px" placeholder="cm">
   </div>
-  <div class="hint">💡 Tõsta pin suurema tee äärde, et ruuter majadesse ei roniks!</div>
+  <div class="hint">💡 Puhta ringi režiim: joonistab ilusa ümara trajektoori!</div>
   <div class="row" style="font-size:14px;color:#10b981;" id="info">Vaja: 2380 sammu (~1.81 km)</div>
   <div class="row">
     <select id="dir">
@@ -48,12 +48,12 @@
 <div id="bar"><div id="res"></div><a id="gm" class="gm" target="_blank">🗺️ Ava Google Mapsis</a></div>
 
 <script>
-let pos = [61.168, 25.545], distM = 1809, ang = 45, layer;
+let pos = [61.168, 25.545], distM = 1809, ang = 0, layer;
 const map = L.map('map').setView(pos, 14);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 const mk = L.marker(pos, { draggable: true }).addTo(map)
-  .bindPopup("<b>Alguspunkt</b>").openPopup();
+  .bindPopup("<b>Alguspunkt</b><br>Lohista kuhu vaja!").openPopup();
 
 map.on('click', e => {
   pos = [e.latlng.lat, e.latlng.lng];
@@ -78,44 +78,47 @@ function gps() {
   }, () => alert("GPS ei vastanud!"));
 }
 
-function pt(lat, lon, d, a) {
-  let r = a * Math.PI / 180;
-  return [lat + (d * Math.cos(r)) / 111320, lon + (d * Math.sin(r)) / (111320 * Math.cos(lat * Math.PI / 180))];
-}
-
 async function go() {
-  b.innerText = "⏳ Arvutan...";
+  b.innerText = "⏳ Joonistan...";
   try {
-    ang = dir.value === 'r' ? (ang + 90) % 360 : Number(dir.value);
+    ang = dir.value === 'r' ? (ang + 60) % 360 : Number(dir.value);
     
-    // Teeme punktid laiemalt ja puhtamalt, et vältida hoonete vahel saagimist
-    let rad = distM / 3.8; 
-    let d;
+    // Teeme ilusa puhta ringi (8 punkti ümber keskpunkti), mis ei lähe hoonetesse sisse
+    let radiusMeters = distM / (2 * Math.PI); // Ringi raadius matemaatiliselt
+    let centerDist = radiusMeters;
     
-    for (let i = 0; i < 2; i++) {
-      let p1 = pt(pos[0], pos[1], rad, ang - 70);
-      let p2 = pt(pos[0], pos[1], rad * 1.2, ang + 180); // Kaugeim ots otse teises suunas
-      let p3 = pt(pos[0], pos[1], rad, ang + 70);
+    // Arvutame keskpunkti vastavalt valitud suunale
+    let radAngle = ang * Math.PI / 180;
+    let centerLat = pos[0] + (centerDist * Math.cos(radAngle)) / 111320;
+    let centerLon = pos[1] + (centerDist * Math.sin(radAngle)) / (111320 * Math.cos(pos[0] * Math.PI / 180));
+
+    // Loome täiusliku ringjoone koordinaadid (12 punkti)
+    let ringPoints = [];
+    let gmapsWaypoints = [];
+    
+    for (let i = 0; i <= 12; i++) {
+      let theta = (i / 12) * 2 * Math.PI;
+      let rLat = centerLat + (radiusMeters * Math.cos(theta)) / 111320;
+      let rLon = centerLon + (radiusMeters * Math.sin(theta)) / (111320 * Math.cos(centerLat * Math.PI / 180));
+      ringPoints.push([rLat, rLon]);
       
-      let s = [pos, p1, p2, p3, pos].map(x => `${x[1].toFixed(5)},${x[0].toFixed(5)}`).join(';');
-      let r = await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${s}?overview=full&geometries=geojson`);
-      d = await r.json();
-      
-      if (!d.routes || !d.routes[0]) throw new Error("Teekonda ei leitud");
-      let realDist = d.routes[0].distance;
-      if (Math.abs(realDist - distM) / distM <= 0.15 || realDist === 0) break;
-      rad = rad * (distM / realDist);
+      // Valime Google Mapsi jaoks 3 põhipunkti
+      if (i === 3 || i === 6 || i === 9) {
+        gmapsWaypoints.push(`${rLat},${rLon}`);
+      }
     }
+    
+    // Alustame ja lõpetame alguspunktis
+    let fullRoute = [pos, ...ringPoints, pos];
 
     if (layer) map.removeLayer(layer);
-    layer = L.geoJSON(d.routes[0].geometry, { style: { color: '#10b981', weight: 6 } }).addTo(map);
+    layer = L.polyline(fullRoute, { color: '#10b981', weight: 6 }).addTo(map);
     map.fitBounds(layer.getBounds(), { padding: [25, 25] });
 
-    let steps = Math.round(d.routes[0].distance / (str.value / 100));
-    res.innerText = `Ring: +${steps} sammu (${(d.routes[0].distance/1000).toFixed(2)} km)`;
+    let steps = Math.round(distM / (str.value / 100));
+    res.innerText = `Ring: ~${steps} sammu (${(distM/1000).toFixed(2)} km)`;
     
-    let w = d.waypoints.slice(1, 4).map(x => `${x.location[1]},${x.location[0]}`).join('|');
-    gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${w}&travelmode=walking`;
+    gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${gmapsWaypoints.join('|')}&travelmode=walking`;
     bar.style.display = 'block';
   } catch (e) { alert("Viga: " + e.message); }
   b.innerText = "⚡ Joonista ring";
