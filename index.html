@@ -7,16 +7,18 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
   body { background: #0f172a; color: #fff; }
-  .p { padding: 12px; background: #1e293b; }
-  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
-  input, select, button { padding: 9px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; font-weight: bold; width: 100%; }
-  .btn { background: #10b981; color: #000; border: none; cursor: pointer; }
-  #map { width: 100%; height: 65vh; min-height: 340px; background: #334155; }
-  #bar { position: fixed; bottom: 10px; left: 10px; right: 10px; background: #1e293b; padding: 12px; border-radius: 10px; z-index: 999; display: none; border: 1px solid #10b981; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-  .gm { display: block; text-align: center; background: #3b82f6; color: #fff; padding: 10px; border-radius: 8px; text-decoration: none; margin-top: 8px; font-weight: bold; }
-  .hint { font-size: 0.75rem; color: #94a3b8; text-align: center; margin-bottom: 6px; }
+  .p { padding: 10px 12px; background: #1e293b; border-bottom: 1px solid #334155; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 7px; }
+  input, select, button { padding: 8px 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; font-weight: 700; width: 100%; font-size: 0.9rem; }
+  .btn { background: #10b981; color: #052e16; border: none; cursor: pointer; }
+  .btn:disabled { opacity: 0.5; }
+  #map { width: 100%; height: 64vh; min-height: 340px; background: #334155; }
+  #bar { position: fixed; bottom: 10px; left: 10px; right: 10px; background: #1e293b; padding: 12px; border-radius: 12px; z-index: 999; display: none; border: 1px solid #10b981; box-shadow: 0 10px 25px rgba(0,0,0,0.6); }
+  .bar-btns { display: flex; gap: 8px; margin-top: 8px; }
+  .gm { display: block; text-align: center; background: #3b82f6; color: #fff; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: 700; flex: 1.5; font-size: 0.9rem; }
+  .retry { background: #334155; color: #fff; border: none; flex: 1; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -30,40 +32,49 @@
     <input type="number" id="goal" value="10000" oninput="calc()" placeholder="Eesmärk">
     <input type="number" id="str" value="76" oninput="calc()" style="width:75px" placeholder="cm">
   </div>
-  <div class="hint">💡 Puhta ringi režiim: joonistab ilusa ümara trajektoori!</div>
-  <div class="row" style="font-size:14px;color:#10b981;" id="info">Vaja: 2380 sammu (~1.81 km)</div>
+  <div class="row" style="font-size:13px;color:#10b981;" id="info">Vaja: 2380 sammu (~1.81 km)</div>
   <div class="row">
+    <select id="mode">
+      <option value="loop">🔄 Puhas ring</option>
+      <option value="outback">↔️ Edasi-tagasi</option>
+    </select>
     <select id="dir">
-      <option value="r">🔄 Suvaline suund</option>
+      <option value="r">🎲 Suvaline suund</option>
+      <option value="180">⬇️ Lõunasse</option>
       <option value="0">⬆️ Põhja</option>
       <option value="90">➡️ Itta</option>
-      <option value="180">⬇️ Lõunasse</option>
       <option value="270">⬅️ Läände</option>
     </select>
-    <button class="btn" id="b" onclick="go()">⚡ Joonista ring</button>
   </div>
+  <button class="btn" id="b" onclick="go()">⚡ Joonista teekond</button>
 </div>
 
 <div id="map"></div>
-<div id="bar"><div id="res"></div><a id="gm" class="gm" target="_blank">🗺️ Ava Google Mapsis</a></div>
+<div id="bar">
+  <div id="res" style="font-weight:700;"></div>
+  <div id="sub" style="font-size:0.8rem;color:#94a3b8;margin-top:2px;"></div>
+  <div class="bar-btns">
+    <button class="retry" onclick="nextDir()">🎲 Teine suund</button>
+    <a id="gm" class="gm" target="_blank">🗺️ Ava Google Mapsis</a>
+  </div>
+</div>
 
 <script>
-let pos = [61.168, 25.545], distM = 1809, ang = 0, layer;
-const map = L.map('map').setView(pos, 14);
+let pos = [61.1705, 25.5445], distM = 1809, ang = 180, layer, turnMk;
+if (localStorage.sr_lat) pos = [Number(localStorage.sr_lat), Number(localStorage.sr_lon)];
+
+const map = L.map('map').setView(pos, 15);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 const mk = L.marker(pos, { draggable: true }).addTo(map)
-  .bindPopup("<b>Alguspunkt</b><br>Lohista kuhu vaja!").openPopup();
+  .bindPopup("<b>Algus ja lõpp</b><br>Lohista või kliki kaardile!").openPopup();
 
-map.on('click', e => {
-  pos = [e.latlng.lat, e.latlng.lng];
-  mk.setLatLng(pos);
-});
-
-mk.on('dragend', e => {
-  let p = e.target.getLatLng();
-  pos = [p.lat, p.lng];
-});
+function setPos(lat, lon) {
+  pos = [lat, lon]; mk.setLatLng(pos);
+  localStorage.sr_lat = lat; localStorage.sr_lon = lon;
+}
+map.on('click', e => setPos(e.latlng.lat, e.latlng.lng));
+mk.on('dragend', e => { let p = e.target.getLatLng(); setPos(p.lat, p.lng); });
 
 function calc() {
   let miss = Math.max(0, (goal.value - cur.value) * 1.05);
@@ -73,55 +84,143 @@ function calc() {
 
 function gps() {
   navigator.geolocation.getCurrentPosition(p => {
-    pos = [p.coords.latitude, p.coords.longitude];
-    mk.setLatLng(pos); map.setView(pos, 16);
-  }, () => alert("GPS ei vastanud!"));
+    setPos(p.coords.latitude, p.coords.longitude);
+    map.setView(pos, 15);
+  }, () => alert("GPS ei vastanud, kliki kaardile!"));
+}
+
+function pt(lat, lon, d, a) {
+  let r = a * Math.PI / 180;
+  return [lat + (d * Math.cos(r)) / 111320, lon + (d * Math.sin(r)) / (111320 * Math.cos(lat * Math.PI / 180))];
+}
+
+function mDist(a, b) {
+  let toR = Math.PI / 180, dLat = (b[0] - a[0]) * toR, dLon = (b[1] - a[1]) * toR;
+  return Math.hypot(dLat, dLon * Math.cos((a[0] + b[0]) * 0.5 * toR)) * 6371000;
+}
+
+function pathLen(pts) {
+  let s = 0;
+  for (let i = 1; i < pts.length; i++) s += mDist(pts[i - 1], pts[i]);
+  return s;
+}
+
+// Lõikab teekonnast välja kõik edasi-tagasi tupikuharud
+function cleanSpikes(rawCoords) {
+  let pts = [rawCoords[0]];
+  for (let i = 1; i < rawCoords.length; i++) {
+    let d = mDist(rawCoords[i - 1], rawCoords[i]);
+    if (d > 10) {
+      let n = Math.ceil(d / 10);
+      for (let k = 1; k < n; k++) {
+        let f = k / n;
+        pts.push([rawCoords[i - 1][0] + (rawCoords[i][0] - rawCoords[i - 1][0]) * f, rawCoords[i - 1][1] + (rawCoords[i][1] - rawCoords[i - 1][1]) * f]);
+      }
+    }
+    pts.push(rawCoords[i]);
+  }
+  let changed = true, guard = 0;
+  while (changed && guard++ < 25) {
+    changed = false;
+    let cum = [0];
+    for (let i = 1; i < pts.length; i++) cum[i] = cum[i - 1] + mDist(pts[i - 1], pts[i]);
+    let tot = cum[pts.length - 1];
+    for (let i = 0; i < pts.length - 4 && !changed; i++) {
+      for (let j = pts.length - 1; j > i + 3; j--) {
+        if (cum[i] < 45 && (tot - cum[j]) < 45) continue;
+        let sub = cum[j] - cum[i];
+        if (sub > 15 && sub < tot * 0.58 && mDist(pts[i], pts[j]) < 18) {
+          pts.splice(i + 1, j - i);
+          changed = true; break;
+        }
+      }
+    }
+  }
+  return pts;
+}
+
+async function askOsrm(pts) {
+  let s = pts.map(x => `${x[1].toFixed(5)},${x[0].toFixed(5)}`).join(';');
+  let r = await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${s}?overview=full&geometries=geojson`);
+  let d = await r.json();
+  if (!d.routes || !d.routes[0]) throw new Error("Teekonda ei leitud");
+  return d;
+}
+
+function nextDir() {
+  dir.value = 'r';
+  go();
 }
 
 async function go() {
-  b.innerText = "⏳ Joonistan...";
+  b.disabled = true; b.innerText = "⏳ Otsin parimat teed...";
+  if (layer) map.removeLayer(layer);
+  if (turnMk) map.removeLayer(turnMk);
+
   try {
-    ang = dir.value === 'r' ? (ang + 60) % 360 : Number(dir.value);
-    
-    // Teeme ilusa puhta ringi (8 punkti ümber keskpunkti), mis ei lähe hoonetesse sisse
-    let radiusMeters = distM / (2 * Math.PI); // Ringi raadius matemaatiliselt
-    let centerDist = radiusMeters;
-    
-    // Arvutame keskpunkti vastavalt valitud suunale
-    let radAngle = ang * Math.PI / 180;
-    let centerLat = pos[0] + (centerDist * Math.cos(radAngle)) / 111320;
-    let centerLon = pos[1] + (centerDist * Math.sin(radAngle)) / (111320 * Math.cos(pos[0] * Math.PI / 180));
+    ang = dir.value === 'r' ? (ang + 65) % 360 : Number(dir.value);
 
-    // Loome täiusliku ringjoone koordinaadid (12 punkti)
-    let ringPoints = [];
-    let gmapsWaypoints = [];
-    
-    for (let i = 0; i <= 12; i++) {
-      let theta = (i / 12) * 2 * Math.PI;
-      let rLat = centerLat + (radiusMeters * Math.cos(theta)) / 111320;
-      let rLon = centerLon + (radiusMeters * Math.sin(theta)) / (111320 * Math.cos(centerLat * Math.PI / 180));
-      ringPoints.push([rLat, rLon]);
-      
-      // Valime Google Mapsi jaoks 3 põhipunkti
-      if (i === 3 || i === 6 || i === 9) {
-        gmapsWaypoints.push(`${rLat},${rLon}`);
+    if (mode.value === 'outback') {
+      // EDASI-TAGASI REŽIIM (100% lollikindel)
+      let half = (distM / 2) * 0.8, d, turnPt;
+      for (let i = 0; i < 2; i++) {
+        let target = pt(pos[0], pos[1], half, ang);
+        d = await askOsrm([pos, target, pos]);
+        turnPt = [d.waypoints[1].location[1], d.waypoints[1].location[0]];
+        let realD = d.routes[0].distance;
+        if (Math.abs(realD - distM) / distM < 0.1) break;
+        half = half * (distM / (realD || distM));
       }
+      let coords = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      layer = L.polyline(coords, { color: '#10b981', weight: 6 }).addTo(map);
+      turnMk = L.circleMarker(turnPt, { radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 })
+        .addTo(map).bindPopup("🔄 <b>Pöördepunkt!</b><br>Keera siin ots ringi.").openPopup();
+      map.fitBounds(layer.getBounds(), { padding: [30, 30] });
+
+      let totalD = d.routes[0].distance;
+      let steps = Math.round(totalD / (str.value / 100));
+      res.innerText = `Edasi-tagasi: +${steps} sammu (${(totalD/1000).toFixed(2)} km)`;
+      sub.innerText = `Pöördepunkt ${(totalD/2000).toFixed(2)} km kaugusel • ~${Math.round(totalD/80)} min`;
+      gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${turnPt[0]},${turnPt[1]}&travelmode=walking`;
+    } else {
+      // PUHTA RINGI REŽIIM (koos tupikute lõikuriga)
+      let diam = distM / 2.6, clean = [], bestLen = 0;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        // Punktid ühel pool alguspunkti (ühtlane ring, mitte kaheksa)
+        let p1 = pt(pos[0], pos[1], diam * 0.7, ang - 42);
+        let p2 = pt(pos[0], pos[1], diam, ang);
+        let p3 = pt(pos[0], pos[1], diam * 0.7, ang + 42);
+        let d = await askOsrm([pos, p1, p2, p3, pos]);
+        let raw = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        clean = cleanSpikes(raw);
+        bestLen = pathLen(clean);
+
+        if (bestLen < distM * 0.35) {
+          // Selles suunas polnud ringtänavat, keerame suunda
+          ang = (ang + 75) % 360;
+          continue;
+        }
+        if (Math.abs(bestLen - distM) / distM <= 0.15) break;
+        diam = diam * (distM / bestLen);
+      }
+
+      layer = L.polyline(clean, { color: '#10b981', weight: 6 }).addTo(map);
+      map.fitBounds(layer.getBounds(), { padding: [30, 30] });
+
+      let steps = Math.round(bestLen / (str.value / 100));
+      res.innerText = `Puhas ring: +${steps} sammu (${(bestLen/1000).toFixed(2)} km)`;
+      sub.innerText = `Tupikud eemaldatud • Kokku ~${Math.round(bestLen/80)} min kõndi`;
+
+      // Võtame Google Mapsi punktid otse puhta ringi pealt (25%, 50%, 75%)
+      let wps = [0.25, 0.5, 0.75].map(f => {
+        let p = clean[Math.floor(clean.length * f)];
+        return `${p[0].toFixed(5)},${p[1].toFixed(5)}`;
+      }).join('|');
+      gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${wps}&travelmode=walking`;
     }
-    
-    // Alustame ja lõpetame alguspunktis
-    let fullRoute = [pos, ...ringPoints, pos];
-
-    if (layer) map.removeLayer(layer);
-    layer = L.polyline(fullRoute, { color: '#10b981', weight: 6 }).addTo(map);
-    map.fitBounds(layer.getBounds(), { padding: [25, 25] });
-
-    let steps = Math.round(distM / (str.value / 100));
-    res.innerText = `Ring: ~${steps} sammu (${(distM/1000).toFixed(2)} km)`;
-    
-    gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${gmapsWaypoints.join('|')}&travelmode=walking`;
     bar.style.display = 'block';
   } catch (e) { alert("Viga: " + e.message); }
-  b.innerText = "⚡ Joonista ring";
+  b.disabled = false; b.innerText = "⚡ Joonista teekond";
 }
 
 calc();
