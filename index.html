@@ -1,175 +1,99 @@
 <!DOCTYPE html>
 <html lang="et">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sammuring</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-    body { background: #0f172a; color: #f8fafc; }
-    .panel { background: #1e293b; padding: 12px 14px; border-bottom: 1px solid #334155; }
-    .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .title { font-size: 1.1rem; font-weight: 700; }
-    .title span { color: #10b981; }
-    .btn-sm { background: #334155; color: #fff; border: 1px solid #475569; padding: 6px 10px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; }
-    .grid { display: grid; grid-template-columns: 1.2fr 1fr 0.8fr; gap: 8px; margin-bottom: 8px; }
-    .grid label { display: block; font-size: 0.7rem; color: #94a3b8; margin-bottom: 2px; }
-    .grid input { width: 100%; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 7px; border-radius: 6px; font-size: 0.95rem; font-weight: 600; }
-    .meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; background: #0f172a; padding: 7px 10px; border-radius: 6px; margin-bottom: 8px; }
-    .hl { color: #10b981; font-weight: 700; }
-    .actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
-    select, .btn-main { padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; border: 1px solid #334155; }
-    select { background: #0f172a; color: #fff; }
-    .btn-main { background: #10b981; color: #052e16; border: none; cursor: pointer; }
-    #map { width: 100%; height: 68vh; min-height: 360px; background: #cbd5e1; color: #1e293b; display: flex; align-items: center; justify-content: center; font-weight: 600; }
-    .bar { position: fixed; bottom: 12px; left: 12px; right: 12px; background: #1e293b; border: 1px solid #475569; border-radius: 12px; padding: 12px; z-index: 999; display: none; box-shadow: 0 8px 20px rgba(0,0,0,0.6); }
-    .bar-btns { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 8px; }
-    .gmaps { background: #3b82f6; color: #fff; text-decoration: none; text-align: center; padding: 9px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sammuring</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+  body { background: #0f172a; color: #fff; }
+  .p { padding: 12px; background: #1e293b; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  input, select, button { padding: 9px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; font-weight: bold; width: 100%; }
+  .btn { background: #10b981; color: #000; border: none; cursor: pointer; }
+  #map { width: 100%; height: 68vh; min-height: 360px; background: #334155; }
+  #bar { position: fixed; bottom: 10px; left: 10px; right: 10px; background: #1e293b; padding: 12px; border-radius: 10px; z-index: 999; display: none; border: 1px solid #10b981; }
+  .gm { display: block; text-align: center; background: #3b82f6; color: #fff; padding: 10px; border-radius: 8px; text-decoration: none; margin-top: 8px; font-weight: bold; }
+</style>
 </head>
 <body>
-
-  <div class="panel">
-    <div class="top">
-      <div class="title">👟 Sammu<span>ring</span></div>
-      <button class="btn-sm" id="gpsBtn" onclick="locateUser()">📍 Minu asukoht</button>
-    </div>
-
-    <div class="grid">
-      <div>
-        <label>TEHTUD SAMMUD</label>
-        <input type="number" id="currentSteps" value="7733" oninput="calc()" />
-      </div>
-      <div>
-        <label>EESMÄRK</label>
-        <input type="number" id="goalSteps" value="10000" oninput="calc()" />
-      </div>
-      <div>
-        <label>SAMM (CM)</label>
-        <input type="number" id="strideCm" value="76" oninput="calc()" />
-      </div>
-    </div>
-
-    <div class="meta">
-      <div id="summary">Vaja: <span class="hl">2380 sammu</span> (~1.81 km / 23 min)</div>
-      <label><input type="checkbox" id="buf" checked onchange="calc()" /> +5% varu</label>
-    </div>
-
-    <div class="actions">
-      <select id="dir">
-        <option value="random">🔄 Suvaline suund</option>
-        <option value="0">⬆️ Põhja</option>
-        <option value="90">➡️ Itta</option>
-        <option value="180">⬇️ Lõunasse</option>
-        <option value="270">⬅️ Läände</option>
-      </select>
-      <button class="btn-main" id="genBtn" onclick="makeLoop(false)">⚡ Joonista ring</button>
-    </div>
+<div class="p">
+  <div class="row">
+    <b>👟 Sammuring</b>
+    <button onclick="gps()" style="width:auto;background:#334155;">📍 Minu asukoht</button>
   </div>
-
-  <div id="map">Laen kaarti...</div>
-
-  <div class="bar" id="bar">
-    <div id="resMain" style="font-weight:700;"></div>
-    <div id="resSub" style="font-size:0.8rem; color:#94a3b8;"></div>
-    <div class="bar-btns">
-      <button class="btn-sm" onclick="makeLoop(true)">🎲 Proovi teist</button>
-      <a href="#" target="_blank" class="gmaps" id="gmaps">🗺️ Ava Google Mapsis</a>
-    </div>
+  <div class="row">
+    <input type="number" id="cur" value="7733" oninput="calc()" placeholder="Tehtud">
+    <input type="number" id="goal" value="10000" oninput="calc()" placeholder="Eesmärk">
+    <input type="number" id="str" value="76" oninput="calc()" style="width:75px" placeholder="cm">
   </div>
+  <div class="row" style="font-size:14px;color:#10b981;" id="info">Vaja: 2380 sammu (~1.81 km)</div>
+  <div class="row">
+    <select id="dir">
+      <option value="r">🔄 Suvaline suund</option>
+      <option value="0">⬆️ Põhja</option>
+      <option value="90">➡️ Itta</option>
+      <option value="180">⬇️ Lõunasse</option>
+      <option value="270">⬅️ Läände</option>
+    </select>
+    <button class="btn" id="b" onclick="go()">⚡ Joonista ring</button>
+  </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
-  <script>
-    let start = { lat: 58.3859, lon: 24.4971 };
-    let bearing = Math.floor(Math.random() * 360);
-    let targetM = 1809;
-    let map, marker, routeLayer, wpMarkers = [];
+<div id="map"></div>
+<div id="bar"><div id="res"></div><a id="gm" class="gm" target="_blank">🗺️ Ava Google Mapsis</a></div>
 
-    function calc() {
-      const cur = parseInt(document.getElementById('currentSteps').value) || 0;
-      const goal = parseInt(document.getElementById('goalSteps').value) || 10000;
-      const stride = parseInt(document.getElementById('strideCm').value) || 76;
-      const buf = document.getElementById('buf').checked;
+<script>
+let pos = [58.3859, 24.4971], distM = 1809, ang = 45, layer;
+const map = L.map('map').setView(pos, 14);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+const mk = L.marker(pos).addTo(map).bindPopup("Algus ja lõpp (kliki kaardile)").openPopup();
+map.on('click', e => { pos = [e.latlng.lat, e.latlng.lng]; mk.setLatLng(pos); });
 
-      let miss = Math.max(0, goal - cur);
-      if (buf && miss > 0) miss = Math.round(miss * 1.05);
-      targetM = Math.round(miss * (stride / 100));
+function calc() {
+  let miss = Math.max(0, (goal.value - cur.value) * 1.05);
+  distM = Math.round(miss * (str.value / 100));
+  info.innerText = `Vaja (+5% varuga): ${Math.round(miss)} sammu (~${(distM/1000).toFixed(2)} km)`;
+}
 
-      const km = (targetM / 1000).toFixed(2);
-      const min = Math.round(targetM / 80);
-      document.getElementById('summary').innerHTML = miss === 0
-        ? '<span class="hl">🎉 Sammud täis!</span>'
-        : `Vaja: <span class="hl">${miss} sammu</span> (~${km} km / ${min} min)`;
+function gps() {
+  navigator.geolocation.getCurrentPosition(p => {
+    pos = [p.coords.latitude, p.coords.longitude];
+    mk.setLatLng(pos); map.setView(pos, 15);
+  }, () => alert("GPS ei vastanud, kliki lihtsalt kaardil oma asukohale!"));
+}
+
+function pt(lat, lon, d, a) {
+  let r = a * Math.PI / 180;
+  return [lat + (d * Math.cos(r)) / 111320, lon + (d * Math.sin(r)) / (111320 * Math.cos(lat * Math.PI / 180))];
+}
+
+async function go() {
+  b.innerText = "⏳ Arvutan...";
+  try {
+    ang = dir.value === 'r' ? (ang + 85) % 360 : Number(dir.value);
+    let rad = distM / 6.5, d;
+    for (let i = 0; i < 2; i++) {
+      let c = pt(pos[0], pos[1], rad, ang);
+      let p1 = pt(c[0], c[1], rad, ang - 90), p2 = pt(c[0], c[1], rad, ang), p3 = pt(c[0], c[1], rad, ang + 90);
+      let s = [pos, p1, p2, p3, pos].map(x => `${x[1].toFixed(5)},${x[0].toFixed(5)}`).join(';');
+      let r = await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${s}?overview=full&geometries=geojson`);
+      d = await r.json();
+      rad = rad * (distM / d.routes[0].distance);
     }
-
-    function initMap() {
-      if (typeof L === 'undefined') {
-        document.getElementById('map').innerText = 'Viga: Kaarditeek ei laadinud.';
-        return;
-      }
-      document.getElementById('map').innerText = '';
-      map = L.map('map').setView([start.lat, start.lon], 14);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
-
-      marker = L.marker([start.lat, start.lon], { draggable: true }).addTo(map);
-      marker.bindPopup("Algus ja lõpp (kliki kaardile või lohista)").openPopup();
-
-      map.on('click', e => setPos(e.latlng.lat, e.latlng.lng));
-      marker.on('dragend', e => {
-        const p = e.target.getLatLng();
-        setPos(p.lat, p.lng);
-      });
-      setTimeout(() => map.invalidateSize(), 250);
-    }
-
-    function setPos(lat, lon) {
-      start = { lat, lon };
-      if (marker) marker.setLatLng([lat, lon]);
-    }
-
-    function locateUser() {
-      if (!navigator.geolocation) return alert("GPS pole toetatud");
-      const btn = document.getElementById('gpsBtn');
-      btn.innerText = "⏳ Otsin...";
-      navigator.geolocation.getCurrentPosition(
-        p => {
-          btn.innerText = "📍 Minu asukoht";
-          setPos(p.coords.latitude, p.coords.longitude);
-          if (map) map.setView([p.coords.latitude, p.coords.longitude], 15);
-        },
-        () => {
-          btn.innerText = "📍 Minu asukoht";
-          alert("GPS asukohta ei saadud kätte – kliki otse kaardile!");
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    }
-
-    function offset(lat, lon, distM, deg) {
-      const r = deg * Math.PI / 180;
-      return {
-        lat: lat + (distM * Math.cos(r)) / 111320,
-        lon: lon + (distM * Math.sin(r)) / (111320 * Math.cos(lat * Math.PI / 180))
-      };
-    }
-
-    async function getRoute(pts) {
-      const s = pts.map(p => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
-      const urls = [
-        `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${s}?overview=full&geometries=geojson`,
-        `https://router.project-osrm.org/route/v1/foot/${s}?overview=full&geometries=geojson`
-      ];
-      for (const u of urls) {
-        try {
-          const r = await fetch(u);
-          if (r.ok) {
-            const d = await r.json();
-            if (d.routes && d.routes[0]) return d;
-          }
-        } catch (e) {}
-      }
-      
+    if (layer) map.removeLayer(layer);
+    layer = L.geoJSON(d.routes[0].geometry, { style: { color: '#10b981', weight: 6 } }).addTo(map);
+    map.fitBounds(layer.getBounds(), { padding: [25, 25] });
+    let steps = Math.round(d.routes[0].distance / (str.value / 100));
+    res.innerText = `Ring: +${steps} sammu (${(d.routes[0].distance/1000).toFixed(2)} km)`;
+    let w = d.waypoints.slice(1, 4).map(x => `${x.location[1]},${x.location[0]}`).join('|');
+    gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${w}&travelmode=walking`;
+    bar.style.display = 'block';
+  } catch (e) { alert("Viga: " + e.message); }
+  b.innerText = "⚡ Joonista ring";
+}
+</script>
+</body>
+</html>
