@@ -13,9 +13,10 @@
   .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   input, select, button { padding: 9px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; font-weight: bold; width: 100%; }
   .btn { background: #10b981; color: #000; border: none; cursor: pointer; }
-  #map { width: 100%; height: 68vh; min-height: 360px; background: #334155; }
-  #bar { position: fixed; bottom: 10px; left: 10px; right: 10px; background: #1e293b; padding: 12px; border-radius: 10px; z-index: 999; display: none; border: 1px solid #10b981; }
+  #map { width: 100%; height: 65vh; min-height: 340px; background: #334155; }
+  #bar { position: fixed; bottom: 10px; left: 10px; right: 10px; background: #1e293b; padding: 12px; border-radius: 10px; z-index: 999; display: none; border: 1px solid #10b981; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
   .gm { display: block; text-align: center; background: #3b82f6; color: #fff; padding: 10px; border-radius: 8px; text-decoration: none; margin-top: 8px; font-weight: bold; }
+  .hint { font-size: 0.75rem; color: #94a3b8; text-align: center; margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -29,6 +30,7 @@
     <input type="number" id="goal" value="10000" oninput="calc()" placeholder="Eesmärk">
     <input type="number" id="str" value="76" oninput="calc()" style="width:75px" placeholder="cm">
   </div>
+  <div class="hint">💡 Vihje: Lohista sinist pinni kaardil või kliki uude kohta!</div>
   <div class="row" style="font-size:14px;color:#10b981;" id="info">Vaja: 2380 sammu (~1.81 km)</div>
   <div class="row">
     <select id="dir">
@@ -49,8 +51,22 @@
 let pos = [58.3859, 24.4971], distM = 1809, ang = 45, layer;
 const map = L.map('map').setView(pos, 14);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-const mk = L.marker(pos).addTo(map).bindPopup("Algus ja lõpp (kliki kaardile)").openPopup();
-map.on('click', e => { pos = [e.latlng.lat, e.latlng.lng]; mk.setLatLng(pos); });
+
+// Teeme markeri lohistatavaks (draggable: true)
+const mk = L.marker(pos, { draggable: true }).addTo(map)
+  .bindPopup("<b>Siin on su alguspunkt!</b><br>Lohista mind õigesse kohta.").openPopup();
+
+// Kui klikid kaardile, liigub pin sinna
+map.on('click', e => {
+  pos = [e.latlng.lat, e.latlng.lng];
+  mk.setLatLng(pos);
+});
+
+// Kui lohistad pinni, uuendatakse asukohta
+mk.on('dragend', e => {
+  let p = e.target.getLatLng();
+  pos = [p.lat, p.lng];
+});
 
 function calc() {
   let miss = Math.max(0, (goal.value - cur.value) * 1.05);
@@ -61,8 +77,8 @@ function calc() {
 function gps() {
   navigator.geolocation.getCurrentPosition(p => {
     pos = [p.coords.latitude, p.coords.longitude];
-    mk.setLatLng(pos); map.setView(pos, 15);
-  }, () => alert("GPS ei vastanud, kliki lihtsalt kaardil oma asukohale!"));
+    mk.setLatLng(pos); map.setView(pos, 16);
+  }, () => alert("GPS ei vastanud, lohista pin kaardil õigesse kohta!"));
 }
 
 function pt(lat, lon, d, a) {
