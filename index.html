@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Sammuring – Tee 10 000 sammu täis</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Kasutame töökindlat Cloudflare CDN-i -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <style>
     :root {
       --bg: #0f172a;
@@ -18,7 +19,16 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+    
+    html, body {
+      height: 100%;
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
     /* Ülemine juhtpaneel */
     .panel {
@@ -26,6 +36,7 @@
       border-bottom: 1px solid var(--border);
       padding: 12px 16px;
       z-index: 1000;
+      flex-shrink: 0;
       box-shadow: 0 4px 20px rgba(0,0,0,0.4);
     }
 
@@ -138,8 +149,14 @@
     .generate-btn:hover { background: var(--accent-hover); }
     .generate-btn:disabled { opacity: 0.5; cursor: wait; }
 
-    /* Kaart */
-    #map { flex: 1; width: 100%; z-index: 1; }
+    /* Kaardikonteiner kindla miinimumkõrgusega */
+    #map {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 300px;
+      background: #e2e8f0;
+      z-index: 1;
+    }
 
     /* Alumine tulemuse kaart */
     .result-bar {
@@ -223,7 +240,7 @@
     </div>
 
     <div class="meta-row">
-      <div id="targetSummary">Puudu: <span class="stats-highlight">2267 sammu</span> (~1.81 km)</div>
+      <div id="targetSummary">Arvutan...</div>
       <label class="buffer-toggle">
         <input type="checkbox" id="bufferCheck" checked onchange="updateTargetStats()" />
         +5% varu
@@ -249,8 +266,8 @@
   <div class="result-bar" id="resultBar">
     <div class="result-info">
       <div>
-        <div class="result-main" id="resSteps">+2410 sammu (1.83 km)</div>
-        <div class="result-sub" id="resTotal">Ringi järel kokku: 10 143 sammu • ~22 min</div>
+        <div class="result-main" id="resSteps">+0 sammu</div>
+        <div class="result-sub" id="resTotal">Kokku: 0 sammu</div>
       </div>
     </div>
     <div class="result-buttons">
@@ -259,27 +276,43 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script>
-    // Vaikimisi alguspunkt (Pärnu kesklinn), mida saab klikiga või GPS-iga muuta
-    let startCoords = { lat: 58.3859, lon: 24.4971 };
+    // Laeme salvestatud asukoha või kasutame vaikimisi Pärnu kesklinna
+    const savedLat = parseFloat(localStorage.getItem('sr_lat')) || 58.3859;
+    const savedLon = parseFloat(localStorage.getItem('sr_lon')) || 24.4971;
+    let startCoords = { lat: savedLat, lon: savedLon };
+
+    // Laeme salvestatud seaded
+    if (localStorage.getItem('sr_goal')) document.getElementById('goalSteps').value = localStorage.getItem('sr_goal');
+    if (localStorage.getItem('sr_stride')) document.getElementById('strideCm').value = localStorage.getItem('sr_stride');
+
     let currentBearing = Math.floor(Math.random() * 360);
     let targetMeters = 1800;
 
-    // Initsialiseerime kaardi
+    // Initsialiseerime kaardi otse OpenStreetMapi ametliku kihiga
     const map = L.map('map', { zoomControl: false }).setView([startCoords.lat, startCoords.lon], 14);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
     // Lohistatav alguspunkti marker
     const startMarker = L.marker([startCoords.lat, startCoords.lon], { draggable: true }).addTo(map);
-    startMarker.bindPopup("<b>Algus ja lõpp</b><br>Lohista mind või kliki kaardile!").openPopup();
+
+    // Sunnime kaardi suurust uuesti arvutama, et vältida tühi-ekraani viga
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        map.invalidateSize();
+        startMarker.bindPopup("<b>Algus ja lõpp</b><br>Kliki kaardile või vajuta 'Minu asukoht'").openPopup();
+      }, 200);
+    });
+    window.addEventListener('resize', () => map.invalidateSize());
 
     let routeLayer = null;
     let waypointMarkers = [];
 
-    // Kaardil klikkimine muudab alguspunkti
     map.on('click', (e) => {
       setStartPoint(e.latlng.lat, e.latlng.lng);
     });
@@ -292,9 +325,10 @@
     function setStartPoint(lat, lon) {
       startCoords = { lat, lon };
       startMarker.setLatLng([lat, lon]);
+      localStorage.setItem('sr_lat', lat);
+      localStorage.setItem('sr_lon', lon);
     }
 
-    // GPS asukoha küsimine
     function locateUser() {
       const btn = document.getElementById('gpsBtn');
       if (!navigator.geolocation) {
@@ -310,18 +344,20 @@
         },
         () => {
           btn.textContent = "📍 Minu asukoht";
-          alert("Ei saanud GPS asukohta kätte. Vali punkt otse kaardil klikkides!");
+          alert("Ei saanud GPS asukohta kätte. Luba brauseril asukohta kasutada või kliki otse kaardile!");
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: true, timeout: 10000 }
       );
     }
 
-    // Sammude ja distantsi arvutamine
     function updateTargetStats() {
       const current = parseInt(document.getElementById('currentSteps').value) || 0;
       const goal = parseInt(document.getElementById('goalSteps').value) || 10000;
       const strideCm = parseInt(document.getElementById('strideCm').value) || 76;
       const addBuffer = document.getElementById('bufferCheck').checked;
+
+      localStorage.setItem('sr_goal', goal);
+      localStorage.setItem('sr_stride', strideCm);
 
       let missingSteps = Math.max(0, goal - current);
       if (addBuffer && missingSteps > 0) {
@@ -330,7 +366,7 @@
 
       targetMeters = Math.round(missingSteps * (strideCm / 100));
       const km = (targetMeters / 1000).toFixed(2);
-      const mins = Math.round(targetMeters / 80); // ~4.8 km/h
+      const mins = Math.round(targetMeters / 80);
 
       const summaryEl = document.getElementById('targetSummary');
       if (missingSteps === 0) {
@@ -340,7 +376,6 @@
       }
     }
 
-    // Arvutab uue koordinaadi alguspunktist kauguse (m) ja nurga (kraadides) järgi
     function offsetCoord(lat, lon, distanceMeters, bearingDeg) {
       const rad = bearingDeg * (Math.PI / 180);
       const dLat = (distanceMeters * Math.cos(rad)) / 111320;
@@ -348,7 +383,6 @@
       return { lat: lat + dLat, lon: lon + dLon };
     }
 
-    // Pärib OSRM mootorilt jalakäija marsruudi
     async function fetchFootRoute(points) {
       const coordString = points.map(p => `${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
       const urls = [
@@ -363,9 +397,7 @@
             const data = await res.json();
             if (data.routes && data.routes.length > 0) return data;
           }
-        } catch (e) {
-          // Proovime varuserverit
-        }
+        } catch (e) {}
       }
       throw new Error("Marsruudiserveriga ei õnnestunud ühendust saada.");
     }
@@ -394,11 +426,9 @@
           currentBearing = Math.floor(Math.random() * 360);
         }
 
-        // Algne ringi raadius (arvestades tänavate siksak-koefitsienti ~6.8)
         let radius = targetMeters / 6.8;
         let routeData = null;
 
-        // Teeme kuni 2 iteratsiooni: 1. proovib raadiust, 2. skaleerib täpseks
         for (let attempt = 0; attempt < 2; attempt++) {
           const center = offsetCoord(startCoords.lat, startCoords.lon, radius, currentBearing);
           const p1 = offsetCoord(center.lat, center.lon, radius, currentBearing - 90);
@@ -409,10 +439,7 @@
           const actualDist = routeData.routes[0].distance;
 
           const errorRatio = Math.abs(actualDist - targetMeters) / targetMeters;
-          if (errorRatio <= 0.12 || actualDist === 0) {
-            break; // Piisavalt täpne!
-          }
-          // Kohandame raadiust vastavalt tegelikule tänavavõrgule
+          if (errorRatio <= 0.12 || actualDist === 0) break;
           radius = radius * (targetMeters / actualDist);
         }
 
@@ -433,50 +460,9 @@
       waypointMarkers.forEach(m => map.removeLayer(m));
       waypointMarkers = [];
 
-      // Joonistame teekonna kaardile
       routeLayer = L.geoJSON(route.geometry, {
-        style: { color: '#10b981', weight: 6, opacity: 0.9 }
+        style: { color: '#059669', weight: 6, opacity: 0.9 }
       }).addTo(map);
 
-      // Lisame suunapunktid (1, 2, 3), et näha mis pidi ring jookseb
       [1, 2, 3].forEach((idx) => {
-        const wp = waypoints[idx].location; // [lon, lat]
-        const marker = L.circleMarker([wp[1], wp[0]], {
-          radius: 7,
-          fillColor: '#3b82f6',
-          color: '#fff',
-          weight: 2,
-          fillOpacity: 1
-        }).bindTooltip(`${idx}. punkt`, { permanent: false }).addTo(map);
-        waypointMarkers.push(marker);
-      });
-
-      map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
-
-      // Arvutame tulemuse numbrid
-      const strideM = (parseInt(document.getElementById('strideCm').value) || 76) / 100;
-      const currentSteps = parseInt(document.getElementById('currentSteps').value) || 0;
-      const routeSteps = Math.round(route.distance / strideM);
-      const finalSteps = currentSteps + routeSteps;
-      const km = (route.distance / 1000).toFixed(2);
-      const mins = Math.round(route.distance / 80);
-
-      document.getElementById('resSteps').textContent = `+${routeSteps} sammu (${km} km)`;
-      document.getElementById('resTotal').textContent = `Kokku tuleb: ${finalSteps} sammu • ~${mins} min`;
-
-      // Ehitame Google Mapsi otselingi täpsete kõnnitee-punktidega
-      const wp1 = `${waypoints[1].location[1]},${waypoints[1].location[0]}`;
-      const wp2 = `${waypoints[2].location[1]},${waypoints[2].location[0]}`;
-      const wp3 = `${waypoints[3].location[1]},${waypoints[3].location[0]}`;
-      const origin = `${startCoords.lat},${startCoords.lon}`;
-      const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${origin}&waypoints=${wp1}|${wp2}|${wp3}&travelmode=walking`;
-
-      document.getElementById('gmapsLink').href = gmapsUrl;
-      document.getElementById('resultBar').style.display = 'block';
-    }
-
-    // Algne statistika käivitamisel
-    updateTargetStats();
-  </script>
-</body>
-</html>
+        const
