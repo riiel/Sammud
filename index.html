@@ -16,9 +16,11 @@
   .btn:disabled { opacity: 0.5; }
   #map { width: 100%; height: 64vh; min-height: 340px; background: #334155; }
   #bar { position: fixed; bottom: 10px; left: 10px; right: 10px; background: #1e293b; padding: 12px; border-radius: 12px; z-index: 999; display: none; border: 1px solid #10b981; box-shadow: 0 10px 25px rgba(0,0,0,0.6); }
-  .bar-btns { display: flex; gap: 8px; margin-top: 8px; }
-  .gm { display: block; text-align: center; background: #3b82f6; color: #fff; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: 700; flex: 1.5; font-size: 0.9rem; }
-  .retry { background: #334155; color: #fff; border: none; flex: 1; cursor: pointer; }
+  .bar-btns { display: flex; gap: 6px; margin-top: 8px; }
+  .gm { display: block; text-align: center; background: #3b82f6; color: #fff; padding: 10px 8px; border-radius: 8px; text-decoration: none; font-weight: 700; flex: 1.2; font-size: 0.85rem; }
+  .walk-btn { background: #10b981; color: #052e16; border: none; flex: 1.3; cursor: pointer; font-size: 0.85rem; }
+  .retry { background: #334155; color: #fff; border: none; flex: 0.9; cursor: pointer; font-size: 0.85rem; }
+  .num-icon { background: #0f172a; color: #10b981; border: 2px solid #10b981; border-radius: 50%; font-weight: 800; font-size: 12px; text-align: center; line-height: 20px; }
 </style>
 </head>
 <body>
@@ -54,13 +56,15 @@
   <div id="res" style="font-weight:700;"></div>
   <div id="sub" style="font-size:0.8rem;color:#94a3b8;margin-top:2px;"></div>
   <div class="bar-btns">
-    <button class="retry" onclick="nextDir()">🎲 Teine suund</button>
-    <a id="gm" class="gm" target="_blank">🗺️ Ava Google Mapsis</a>
+    <button class="retry" onclick="nextDir()">🎲 Uus suund</button>
+    <button class="walk-btn" id="walkBtn" onclick="toggleWalk()">🧭 Kõnni siin kaardil</button>
+    <a id="gm" class="gm" target="_blank">🗺️ Google Maps</a>
   </div>
 </div>
 
 <script>
-let pos = [61.1705, 25.5445], distM = 1809, ang = 180, layer, turnMk;
+let pos = [61.1715, 25.5415], distM = 1809, ang = 135, layer, extraMks = [];
+let watchId = null, liveDot = null, liveCircle = null;
 if (localStorage.sr_lat) pos = [Number(localStorage.sr_lat), Number(localStorage.sr_lon)];
 
 const map = L.map('map').setView(pos, 15);
@@ -85,8 +89,35 @@ function calc() {
 function gps() {
   navigator.geolocation.getCurrentPosition(p => {
     setPos(p.coords.latitude, p.coords.longitude);
-    map.setView(pos, 15);
+    map.setView(pos, 16);
   }, () => alert("GPS ei vastanud, kliki kaardile!"));
+}
+
+// Reaalajas kõndimise jälgimine otse meie kaardil
+function toggleWalk() {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    if (liveDot) map.removeLayer(liveDot);
+    if (liveCircle) map.removeLayer(liveCircle);
+    walkBtn.innerText = "🧭 Kõnni siin kaardil";
+    walkBtn.style.background = "#10b981";
+    return;
+  }
+  if (!navigator.geolocation) return alert("GPS pole toetatud!");
+  walkBtn.innerText = "⏹️ Lõpeta jälgimine";
+  walkBtn.style.background = "#f59e0b";
+  watchId = navigator.geolocation.watchPosition(p => {
+    let curPos = [p.coords.latitude, p.coords.longitude];
+    if (!liveDot) {
+      liveCircle = L.circle(curPos, { radius: p.coords.accuracy || 15, color: '#3b82f6', fillOpacity: 0.15, weight: 1 }).addTo(map);
+      liveDot = L.circleMarker(curPos, { radius: 8, fillColor: '#3b82f6', color: '#fff', weight: 3, fillOpacity: 1 }).addTo(map);
+    } else {
+      liveDot.setLatLng(curPos);
+      liveCircle.setLatLng(curPos).setRadius(p.coords.accuracy || 15);
+    }
+    map.panTo(curPos);
+  }, () => alert("Ei saa GPS signaali kätte!"), { enableHighAccuracy: true, maximumAge: 2000 });
 }
 
 function pt(lat, lon, d, a) {
@@ -105,13 +136,13 @@ function pathLen(pts) {
   return s;
 }
 
-// Lõikab teekonnast välja kõik edasi-tagasi tupikuharud
+// Tugevdatud lõikur: eemaldab nii tupikud kui ka väikesed kõrvaltänava jõnksud (kuni 32m laiused paunad)
 function cleanSpikes(rawCoords) {
   let pts = [rawCoords[0]];
   for (let i = 1; i < rawCoords.length; i++) {
     let d = mDist(rawCoords[i - 1], rawCoords[i]);
-    if (d > 10) {
-      let n = Math.ceil(d / 10);
+    if (d > 8) {
+      let n = Math.ceil(d / 8);
       for (let k = 1; k < n; k++) {
         let f = k / n;
         pts.push([rawCoords[i - 1][0] + (rawCoords[i][0] - rawCoords[i - 1][0]) * f, rawCoords[i - 1][1] + (rawCoords[i][1] - rawCoords[i - 1][1]) * f]);
@@ -120,16 +151,18 @@ function cleanSpikes(rawCoords) {
     pts.push(rawCoords[i]);
   }
   let changed = true, guard = 0;
-  while (changed && guard++ < 25) {
+  while (changed && guard++ < 35) {
     changed = false;
     let cum = [0];
     for (let i = 1; i < pts.length; i++) cum[i] = cum[i - 1] + mDist(pts[i - 1], pts[i]);
     let tot = cum[pts.length - 1];
     for (let i = 0; i < pts.length - 4 && !changed; i++) {
       for (let j = pts.length - 1; j > i + 3; j--) {
-        if (cum[i] < 45 && (tot - cum[j]) < 45) continue;
+        if (cum[i] < 50 && (tot - cum[j]) < 50) continue;
         let sub = cum[j] - cum[i];
-        if (sub > 15 && sub < tot * 0.58 && mDist(pts[i], pts[j]) < 18) {
+        let direct = mDist(pts[i], pts[j]);
+        // Kui teekond teeb pauna, mis tuleb samasse kohta (<32m) tagasi, lõikame pauna maha
+        if (sub > 25 && sub < tot * 0.55 && direct < 32 && sub > direct * 2.4) {
           pts.splice(i + 1, j - i);
           changed = true; break;
         }
@@ -137,6 +170,19 @@ function cleanSpikes(rawCoords) {
     }
   }
   return pts;
+}
+
+// Võtab puhastatud ringilt võrdsete vahemaade tagant N punkti
+function sampleByDist(pts, count) {
+  let cum = [0];
+  for (let i = 1; i < pts.length; i++) cum[i] = cum[i - 1] + mDist(pts[i - 1], pts[i]);
+  let tot = cum[cum.length - 1], res = [];
+  for (let k = 1; k <= count; k++) {
+    let target = (tot * k) / (count + 1);
+    let idx = cum.findIndex(c => c >= target);
+    if (idx !== -1) res.push(pts[idx]);
+  }
+  return res;
 }
 
 async function askOsrm(pts) {
@@ -155,13 +201,13 @@ function nextDir() {
 async function go() {
   b.disabled = true; b.innerText = "⏳ Otsin parimat teed...";
   if (layer) map.removeLayer(layer);
-  if (turnMk) map.removeLayer(turnMk);
+  extraMks.forEach(m => map.removeLayer(m));
+  extraMks = [];
 
   try {
     ang = dir.value === 'r' ? (ang + 65) % 360 : Number(dir.value);
 
     if (mode.value === 'outback') {
-      // EDASI-TAGASI REŽIIM (100% lollikindel)
       let half = (distM / 2) * 0.8, d, turnPt;
       for (let i = 0; i < 2; i++) {
         let target = pt(pos[0], pos[1], half, ang);
@@ -173,8 +219,9 @@ async function go() {
       }
       let coords = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
       layer = L.polyline(coords, { color: '#10b981', weight: 6 }).addTo(map);
-      turnMk = L.circleMarker(turnPt, { radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 })
+      let tMk = L.circleMarker(turnPt, { radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 })
         .addTo(map).bindPopup("🔄 <b>Pöördepunkt!</b><br>Keera siin ots ringi.").openPopup();
+      extraMks.push(tMk);
       map.fitBounds(layer.getBounds(), { padding: [30, 30] });
 
       let totalD = d.routes[0].distance;
@@ -183,10 +230,8 @@ async function go() {
       sub.innerText = `Pöördepunkt ${(totalD/2000).toFixed(2)} km kaugusel • ~${Math.round(totalD/80)} min`;
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${turnPt[0]},${turnPt[1]}&travelmode=walking`;
     } else {
-      // PUHTA RINGI REŽIIM (koos tupikute lõikuriga)
       let diam = distM / 2.6, clean = [], bestLen = 0;
       for (let attempt = 0; attempt < 4; attempt++) {
-        // Punktid ühel pool alguspunkti (ühtlane ring, mitte kaheksa)
         let p1 = pt(pos[0], pos[1], diam * 0.7, ang - 42);
         let p2 = pt(pos[0], pos[1], diam, ang);
         let p3 = pt(pos[0], pos[1], diam * 0.7, ang + 42);
@@ -196,26 +241,29 @@ async function go() {
         bestLen = pathLen(clean);
 
         if (bestLen < distM * 0.35) {
-          // Selles suunas polnud ringtänavat, keerame suunda
           ang = (ang + 75) % 360;
           continue;
         }
-        if (Math.abs(bestLen - distM) / distM <= 0.15) break;
+        if (Math.abs(bestLen - distM) / distM <= 0.14) break;
         diam = diam * (distM / bestLen);
       }
 
       layer = L.polyline(clean, { color: '#10b981', weight: 6 }).addTo(map);
+
+      // Lisame kaardile suunanumbrid 1, 2, 3, et näha mis pidi ring jookseb
+      sampleByDist(clean, 3).forEach((p, idx) => {
+        let ic = L.divIcon({ className: 'num-icon', html: `${idx + 1}`, iconSize: [24, 24] });
+        extraMks.push(L.marker(p, { icon: ic }).addTo(map));
+      });
+
       map.fitBounds(layer.getBounds(), { padding: [30, 30] });
 
       let steps = Math.round(bestLen / (str.value / 100));
       res.innerText = `Puhas ring: +${steps} sammu (${(bestLen/1000).toFixed(2)} km)`;
-      sub.innerText = `Tupikud eemaldatud • Kokku ~${Math.round(bestLen/80)} min kõndi`;
+      sub.innerText = `Järgi numbreid 1 → 2 → 3 • ~${Math.round(bestLen/80)} min kõndi`;
 
-      // Võtame Google Mapsi punktid otse puhta ringi pealt (25%, 50%, 75%)
-      let wps = [0.25, 0.5, 0.75].map(f => {
-        let p = clean[Math.floor(clean.length * f)];
-        return `${p[0].toFixed(5)},${p[1].toFixed(5)}`;
-      }).join('|');
+      // Saadame Google Mapsile 7 tihedat vahepunkti, et ta ei saaks teekonda ära lõhkuda
+      let wps = sampleByDist(clean, 7).map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join('|');
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${wps}&travelmode=walking`;
     }
     bar.style.display = 'block';
