@@ -30,7 +30,7 @@
     <input type="number" id="goal" value="10000" oninput="calc()" placeholder="Eesmärk">
     <input type="number" id="str" value="76" oninput="calc()" style="width:75px" placeholder="cm">
   </div>
-  <div class="hint">💡 Vihje: Lohista sinist pinni kaardil või kliki uude kohta!</div>
+  <div class="hint">💡 Lohista sinist pinni kaardil või kliki uude kohta!</div>
   <div class="row" style="font-size:14px;color:#10b981;" id="info">Vaja: 2380 sammu (~1.81 km)</div>
   <div class="row">
     <select id="dir">
@@ -48,21 +48,18 @@
 <div id="bar"><div id="res"></div><a id="gm" class="gm" target="_blank">🗺️ Ava Google Mapsis</a></div>
 
 <script>
-let pos = [58.3859, 24.4971], distM = 1809, ang = 45, layer;
+let pos = [61.168, 25.545], distM = 1809, ang = 45, layer;
 const map = L.map('map').setView(pos, 14);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Teeme markeri lohistatavaks (draggable: true)
 const mk = L.marker(pos, { draggable: true }).addTo(map)
-  .bindPopup("<b>Siin on su alguspunkt!</b><br>Lohista mind õigesse kohta.").openPopup();
+  .bindPopup("<b>Alguspunkt</b><br>Lohista mind soovitavasse kohta!").openPopup();
 
-// Kui klikid kaardile, liigub pin sinna
 map.on('click', e => {
   pos = [e.latlng.lat, e.latlng.lng];
   mk.setLatLng(pos);
 });
 
-// Kui lohistad pinni, uuendatakse asukohta
 mk.on('dragend', e => {
   let p = e.target.getLatLng();
   pos = [p.lat, p.lng];
@@ -78,7 +75,7 @@ function gps() {
   navigator.geolocation.getCurrentPosition(p => {
     pos = [p.coords.latitude, p.coords.longitude];
     mk.setLatLng(pos); map.setView(pos, 16);
-  }, () => alert("GPS ei vastanud, lohista pin kaardil õigesse kohta!"));
+  }, () => alert("GPS ei vastanud, lohista pin kaardil!"));
 }
 
 function pt(lat, lon, d, a) {
@@ -89,27 +86,43 @@ function pt(lat, lon, d, a) {
 async function go() {
   b.innerText = "⏳ Arvutan...";
   try {
-    ang = dir.value === 'r' ? (ang + 85) % 360 : Number(dir.value);
-    let rad = distM / 6.5, d;
+    ang = dir.value === 'r' ? (ang + 70) % 360 : Number(dir.value);
+    
+    // Optimeeritud ringi loogika (hoiab ära tagasipöörded)
+    let rad = distM / 5.2; 
+    let d;
+    
     for (let i = 0; i < 2; i++) {
-      let c = pt(pos[0], pos[1], rad, ang);
-      let p1 = pt(c[0], c[1], rad, ang - 90), p2 = pt(c[0], c[1], rad, ang), p3 = pt(c[0], c[1], rad, ang + 90);
+      // Teeme sujuva 4-punkti ringi (väljaku- või kaarekujuline hajutatus)
+      let p1 = pt(pos[0], pos[1], rad * 0.7, ang - 45);
+      let p2 = pt(pos[0], pos[1], rad, ang + 45);
+      let p3 = pt(pos[0], pos[1], rad * 0.7, ang + 135);
+      
       let s = [pos, p1, p2, p3, pos].map(x => `${x[1].toFixed(5)},${x[0].toFixed(5)}`).join(';');
       let r = await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${s}?overview=full&geometries=geojson`);
       d = await r.json();
-      rad = rad * (distM / d.routes[0].distance);
+      
+      if (!d.routes || !d.routes[0]) throw new Error("Teekonda ei leitud");
+      let realDist = d.routes[0].distance;
+      if (Math.abs(realDist - distM) / distM <= 0.15 || realDist === 0) break;
+      rad = rad * (distM / realDist);
     }
+
     if (layer) map.removeLayer(layer);
     layer = L.geoJSON(d.routes[0].geometry, { style: { color: '#10b981', weight: 6 } }).addTo(map);
     map.fitBounds(layer.getBounds(), { padding: [25, 25] });
+
     let steps = Math.round(d.routes[0].distance / (str.value / 100));
     res.innerText = `Ring: +${steps} sammu (${(d.routes[0].distance/1000).toFixed(2)} km)`;
+    
     let w = d.waypoints.slice(1, 4).map(x => `${x.location[1]},${x.location[0]}`).join('|');
     gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${w}&travelmode=walking`;
     bar.style.display = 'block';
   } catch (e) { alert("Viga: " + e.message); }
   b.innerText = "⚡ Joonista ring";
 }
+
+calc();
 </script>
 </body>
 </html>
