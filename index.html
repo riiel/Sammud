@@ -30,7 +30,7 @@
     <input type="number" id="goal" value="10000" oninput="calc()" placeholder="Eesmärk">
     <input type="number" id="str" value="76" oninput="calc()" style="width:75px" placeholder="cm">
   </div>
-  <div class="hint">💡 Vihje: Tõsta sinine pin suurema tänava äärde!</div>
+  <div class="hint">💡 Tõsta pin suurema tee äärde, et ruuter majadesse ei roniks!</div>
   <div class="row" style="font-size:14px;color:#10b981;" id="info">Vaja: 2380 sammu (~1.81 km)</div>
   <div class="row">
     <select id="dir">
@@ -53,7 +53,7 @@ const map = L.map('map').setView(pos, 14);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 const mk = L.marker(pos, { draggable: true }).addTo(map)
-  .bindPopup("<b>Alguspunkt</b><br>Lohista suurema tänava äärde!").openPopup();
+  .bindPopup("<b>Alguspunkt</b>").openPopup();
 
 map.on('click', e => {
   pos = [e.latlng.lat, e.latlng.lng];
@@ -75,7 +75,7 @@ function gps() {
   navigator.geolocation.getCurrentPosition(p => {
     pos = [p.coords.latitude, p.coords.longitude];
     mk.setLatLng(pos); map.setView(pos, 16);
-  }, () => alert("GPS ei vastanud, lohista pin tänavale!"));
+  }, () => alert("GPS ei vastanud!"));
 }
 
 function pt(lat, lon, d, a) {
@@ -88,15 +88,14 @@ async function go() {
   try {
     ang = dir.value === 'r' ? (ang + 90) % 360 : Number(dir.value);
     
-    // Arvutame ringi haarad nii, et need teevad korraliku suure ringi (mitte hoovides siksakitamist)
-    let rad = distM / 4.5; 
+    // Teeme punktid laiemalt ja puhtamalt, et vältida hoonete vahel saagimist
+    let rad = distM / 3.8; 
     let d;
     
     for (let i = 0; i < 2; i++) {
-      // 3 tugipunkti teevad ilusa kaare: vasak tiib, kaugeim ots, parem tiib
-      let p1 = pt(pos[0], pos[1], rad, ang - 60);
-      let p2 = pt(pos[0], pos[1], rad * 1.1, ang);
-      let p3 = pt(pos[0], pos[1], rad, ang + 60);
+      let p1 = pt(pos[0], pos[1], rad, ang - 70);
+      let p2 = pt(pos[0], pos[1], rad * 1.2, ang + 180); // Kaugeim ots otse teises suunas
+      let p3 = pt(pos[0], pos[1], rad, ang + 70);
       
       let s = [pos, p1, p2, p3, pos].map(x => `${x[1].toFixed(5)},${x[0].toFixed(5)}`).join(';');
       let r = await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${s}?overview=full&geometries=geojson`);
