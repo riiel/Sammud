@@ -13,10 +13,22 @@
   /* Täisekraanil kaart */
   #map { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; background: #090d16; }
 
+  /* Kaardistiilide filtrid (muudavad ainult kaarti, mitte teekonna joont) */
+  #map.theme-dark .leaflet-tile-pane {
+    filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(92%) saturate(85%);
+  }
+  #map.theme-modern .leaflet-tile-pane {
+    filter: saturate(55%) contrast(96%) brightness(103%);
+  }
+  #map.theme-classic .leaflet-tile-pane,
+  #map.theme-sat .leaflet-tile-pane {
+    filter: none;
+  }
+
   /* Ülemine klaasjas ujuv paneel */
   .glass-top {
     position: fixed; top: 10px; left: 10px; right: 10px; z-index: 500;
-    background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 18px;
     padding: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   }
@@ -27,7 +39,7 @@
   .top-actions { display: flex; gap: 6px; }
 
   .pill-btn {
-    background: rgba(51, 65, 85, 0.7); color: #f8fafc; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(51, 65, 85, 0.75); color: #f8fafc; border: 1px solid rgba(255,255,255,0.12);
     padding: 6px 10px; border-radius: 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer; width: auto;
   }
   .pill-btn:active { transform: scale(0.96); }
@@ -57,7 +69,7 @@
   /* Alumine ujuv tulemuse paneel */
   #bar {
     position: fixed; bottom: 14px; left: 10px; right: 10px; z-index: 500; display: none;
-    background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 18px;
     padding: 14px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
   }
@@ -85,7 +97,7 @@
   <div class="top-bar">
     <div class="brand">👟 Sammu<span>ring</span></div>
     <div class="top-actions">
-      <button class="pill-btn" id="styleBtn" onclick="cycleStyle()">🎨 Tume</button>
+      <button class="pill-btn" id="styleBtn" onclick="cycleStyle()">🌙 Tume</button>
       <button class="pill-btn" onclick="gps()">📍 Asukoht</button>
     </div>
   </div>
@@ -115,7 +127,7 @@
   <button class="main-btn" id="b" onclick="go()">⚡ Joonista teekond</button>
 </div>
 
-<div id="map"></div>
+<div id="map" class="theme-dark"></div>
 
 <div id="bar">
   <div id="res" style="font-weight:800;font-size:1rem;"></div>
@@ -132,28 +144,41 @@ let pos = [61.1715, 25.5415], distM = 1809, ang = 135, glowLayer, layer, extraMk
 let watchId = null, liveDot = null, liveCircle = null;
 if (localStorage.sr_lat) pos = [Number(localStorage.sr_lat), Number(localStorage.sr_lon)];
 
+const mapEl = document.getElementById('map');
 const map = L.map('map', { zoomControl: false }).setView(pos, 15);
 
-// 4 moodsat kaardistiili
+const osmUrl = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const satUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+
+// 4 stiili, mis ei nõua ühtegi API võtit
 const styles = [
-  { name: "🎨 Tume", url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" },
-  { name: "🎨 Hele", url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" },
-  { name: "🎨 Satelliit", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" },
-  { name: "🎨 Radadega", url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }
+  { name: "🌙 Tume", cls: "theme-dark", url: osmUrl },
+  { name: "☀️ Moodne", cls: "theme-modern", url: osmUrl },
+  { name: "🛰️ Satelliit", cls: "theme-sat", url: satUrl },
+  { name: "🌲 Detailne", cls: "theme-classic", url: osmUrl }
 ];
+
 let styleIdx = Number(localStorage.sr_style) || 0;
 let tileLayer = L.tileLayer(styles[styleIdx].url, { maxZoom: 19 }).addTo(map);
-document.getElementById('styleBtn').innerText = styles[styleIdx].name;
+applyTheme();
 
-function cycleStyle() {
-  styleIdx = (styleIdx + 1) % styles.length;
-  localStorage.sr_style = styleIdx;
-  map.removeLayer(tileLayer);
-  tileLayer = L.tileLayer(styles[styleIdx].url, { maxZoom: 19 }).addTo(map);
-  document.getElementById('styleBtn').innerText = styles[styleIdx].name;
+function applyTheme() {
+  const s = styles[styleIdx];
+  mapEl.className = "leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom " + s.cls;
+  document.getElementById('styleBtn').innerText = s.name;
 }
 
-// Moodne alguspunkti marker
+function cycleStyle() {
+  const prevUrl = styles[styleIdx].url;
+  styleIdx = (styleIdx + 1) % styles.length;
+  localStorage.sr_style = styleIdx;
+  if (styles[styleIdx].url !== prevUrl) {
+    map.removeLayer(tileLayer);
+    tileLayer = L.tileLayer(styles[styleIdx].url, { maxZoom: 19 }).addTo(map);
+  }
+  applyTheme();
+}
+
 const pinIcon = L.divIcon({ className: '', html: '<div class="start-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
 const mk = L.marker(pos, { draggable: true, icon: pinIcon }).addTo(map);
 
@@ -269,8 +294,8 @@ async function askOsrm(pts) {
 function drawGlowingRoute(coords) {
   if (glowLayer) map.removeLayer(glowLayer);
   if (layer) map.removeLayer(layer);
-  glowLayer = L.polyline(coords, { color: '#10b981', weight: 14, opacity: 0.25 }).addTo(map);
-  layer = L.polyline(coords, { color: '#34d399', weight: 5, opacity: 1 }).addTo(map);
+  glowLayer = L.polyline(coords, { color: '#10b981', weight: 14, opacity: 0.28 }).addTo(map);
+  layer = L.polyline(coords, { color: '#10b981', weight: 5, opacity: 1 }).addTo(map);
   map.fitBounds(layer.getBounds(), { paddingTopLeft: [20, 210], paddingBottomRight: [20, 120] });
 }
 
