@@ -26,7 +26,7 @@
     background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 20px;
     padding: 11px 13px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
-    max-height: 90vh; overflow-y: auto;
+    max-height: 88vh; overflow-y: auto;
   }
 
   .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -61,14 +61,13 @@
     color: #fca5a5; cursor: pointer; display: none;
   }
 
-  /* Peatuste haldusloend ja koti-lüliti */
-  #stopsPanel { display: none; background: rgba(9, 13, 22, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px; margin-bottom: 7px; }
+  #stopsPanel { display: none; background: rgba(9, 13, 22, 0.65); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px; margin-bottom: 7px; }
   .stop-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .stop-item:last-child { border-bottom: none; }
   .stop-actions-btns { display: flex; gap: 4px; }
-  .stop-action-btn { background: #334155; color: #fff; border: none; padding: 2px 6px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+  .stop-action-btn { background: #334155; color: #fff; border: none; padding: 2px 7px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
   
-  .bag-toggle-row { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #cbd5e1; margin-top: 6px; cursor: pointer; font-weight: 600; }
+  .bag-toggle-row { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: #cbd5e1; margin-top: 6px; cursor: pointer; font-weight: 600; line-height: 1.25; }
 
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
   select {
@@ -92,16 +91,16 @@
   }
   .bar-btns { display: flex; gap: 6px; margin-top: 9px; }
   .b-btn { padding: 10px 8px; border-radius: 11px; font-weight: 800; font-size: 0.82rem; border: none; cursor: pointer; text-align: center; text-decoration: none; }
-  .retry { background: rgba(51, 65, 85, 0.85); color: #fff; flex: 0.9; }
+  .retry { background: rgba(51, 65, 85, 0.85); color: #fff; flex: 0.95; }
   .walk-btn { background: #10b981; color: #042f1e; flex: 1.3; }
-  .gm { background: #3b82f6; color: #fff; flex: 1.1; }
+  .gm { background: #3b82f6; color: #fff; flex: 1.05; }
 
   .start-pin {
     width: 22px; height: 22px; border-radius: 50%; background: #10b981;
     border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.35), 0 4px 10px rgba(0,0,0,0.5);
   }
   .stop-pin {
-    background: #f59e0b; color: #0b0f19; border: 2px solid #fff; border-radius: 50%;
+    background: #ef4444; color: #fff; border: 2px solid #fff; border-radius: 50%;
     font-weight: 900; font-size: 11px; text-align: center; line-height: 22px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.6);
   }
@@ -136,11 +135,11 @@
     <button class="clear-stops" id="clearStopsBtn" onclick="clearStops()">🗑️ Nulli</button>
   </div>
 
-  <!-- Peatuste haldamise kast ja otsetee lüliti -->
   <div id="stopsPanel">
     <div id="stopsList"></div>
     <label class="bag-toggle-row">
-      <input type="checkbox" id="directHomeCheck" checked> 🛍️ Pood viimaseks (otse koju, ilma lisaringita)
+      <input type="checkbox" id="directHomeCheck" checked>
+      <span>🛍️ <b>Pood viimaseks:</b> tee sammuring enne viimast peatust ja tule sealt otse koju</span>
     </label>
   </div>
 
@@ -151,10 +150,14 @@
     </select>
     <select id="dir">
       <option value="r">🎲 Suvaline suund</option>
-      <option value="180">⬇️ Lõunasse</option>
       <option value="0">⬆️ Põhja</option>
+      <option value="45">↗️ Kirdesse</option>
       <option value="90">➡️ Itta</option>
+      <option value="135">↘️ Kagusse</option>
+      <option value="180">⬇️ Lõunasse</option>
+      <option value="225">↙️ Edelasse</option>
       <option value="270">⬅️ Läände</option>
+      <option value="315">↖️ Loodesse</option>
     </select>
   </div>
 
@@ -174,7 +177,7 @@
 </div>
 
 <script>
-let pos = [61.1715, 25.5415], distM = 1809, ang = 135, sideFlip = 1;
+let pos = [58.3725, 24.5515], distM = 1809, ang = 45;
 let glowLayer, layer, extraMks = [];
 let stops = [], stopMks = [], addingStops = false;
 let watchId = null, liveDot = null, liveCircle = null;
@@ -221,11 +224,8 @@ function setPos(lat, lon) {
 }
 
 map.on('click', e => {
-  if (addingStops) {
-    addStop(e.latlng.lat, e.latlng.lng);
-  } else {
-    setPos(e.latlng.lat, e.latlng.lng);
-  }
+  if (addingStops) addStop(e.latlng.lat, e.latlng.lng);
+  else setPos(e.latlng.lat, e.latlng.lng);
 });
 mk.on('dragend', e => { let p = e.target.getLatLng(); setPos(p.lat, p.lng); });
 
@@ -273,9 +273,10 @@ function renderStops() {
     });
     stopMks.push(m);
 
+    let roleTxt = (idx === stops.length - 1) ? "Viimane peatus" : `${idx + 1}. peatus`;
     listHtml += `
       <div class="stop-item">
-        <span><b>P${idx + 1}</b> (Peatus)</span>
+        <span><b>P${idx + 1}</b> (${roleTxt})</span>
         <div class="stop-actions-btns">
           <button class="stop-action-btn" onclick="moveStop(${idx}, -1)">⬆️</button>
           <button class="stop-action-btn" onclick="moveStop(${idx}, 1)">⬇️</button>
@@ -347,14 +348,6 @@ function mDist(a, b) {
   return Math.hypot(dLat, dLon * Math.cos((a[0] + b[0]) * 0.5 * toR)) * 6371000;
 }
 
-function bearingBetween(a, b) {
-  let toR = Math.PI / 180;
-  let dLon = (b[1] - a[1]) * toR;
-  let y = Math.sin(dLon) * Math.cos(b[0] * toR);
-  let x = Math.cos(a[0] * toR) * Math.sin(b[0] * toR) - Math.sin(a[0] * toR) * Math.cos(b[0] * toR) * Math.cos(dLon);
-  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
-}
-
 function pathLen(pts) {
   let s = 0;
   for (let i = 1; i < pts.length; i++) s += mDist(pts[i - 1], pts[i]);
@@ -382,9 +375,9 @@ function cleanSpikes(rawCoords) {
     let tot = cum[pts.length - 1];
     for (let i = 0; i < pts.length - 4 && !changed; i++) {
       for (let j = pts.length - 1; j > i + 3; j--) {
-        if (cum[i] < 50 && (tot - cum[j]) < 50) continue;
+        if (cum[i] < 45 && (tot - cum[j]) < 45) continue;
         let sub = cum[j] - cum[i], direct = mDist(pts[i], pts[j]);
-        if (sub > 25 && sub < tot * 0.55 && direct < 32 && sub > direct * 2.4) {
+        if (sub > 25 && sub < tot * 0.65 && direct < 32 && sub > direct * 2.3) {
           pts.splice(i + 1, j - i); changed = true; break;
         }
       }
@@ -414,84 +407,138 @@ async function askOsrm(pts) {
   return d;
 }
 
+// Ehitab kahe punkti (fromPt -> toPt) vahele täpselt targetLegM pikkuse puhta kaare suunas baseAng
+async function buildDetourLeg(fromPt, toPt, targetLegM, baseAng) {
+  let mid = [(fromPt[0] + toPt[0]) / 2, (fromPt[1] + toPt[1]) / 2];
+  let rad = Math.max(120, targetLegM / 3.1);
+  let bestClean = [], bestLen = 0;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let p1 = pt(mid[0], mid[1], rad * 0.78, baseAng - 38);
+    let p2 = pt(mid[0], mid[1], rad, baseAng);
+    let p3 = pt(mid[0], mid[1], rad * 0.78, baseAng + 38);
+    let d = await askOsrm([fromPt, p1, p2, p3, toPt]);
+    let raw = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+    bestClean = cleanSpikes(raw);
+    bestLen = pathLen(bestClean);
+
+    if (Math.abs(bestLen - targetLegM) / targetLegM <= 0.12) break;
+    let ratio = targetLegM / Math.max(bestLen, 100);
+    rad = rad * Math.min(2.4, Math.max(0.4, ratio));
+  }
+  return { coords: bestClean, dist: bestLen };
+}
+
 function drawGlowingRoute(coords) {
   if (glowLayer) map.removeLayer(glowLayer);
   if (layer) map.removeLayer(layer);
   glowLayer = L.polyline(coords, { color: '#10b981', weight: 14, opacity: 0.3 }).addTo(map);
   layer = L.polyline(coords, { color: '#059669', weight: 6, opacity: 1 }).addTo(map);
-  map.fitBounds(layer.getBounds(), { paddingTopLeft: [20, 240], paddingBottomRight: [20, 120] });
+  map.fitBounds(layer.getBounds(), { paddingTopLeft: [20, 250], paddingBottomRight: [20, 125] });
+}
+
+function addDirectionNumbers(coords) {
+  sampleByDist(coords, 3).forEach((p, idx) => {
+    let ic = L.divIcon({ className: 'num-icon', html: `${idx + 1}`, iconSize: [22, 22] });
+    extraMks.push(L.marker(p, { icon: ic }).addTo(map));
+  });
 }
 
 function nextDir() {
   dir.value = 'r';
-  sideFlip = -sideFlip;
-  go();
+  ang = (ang + 55) % 360;
+  go(true);
 }
 
-async function go() {
+async function go(keepAng = false) {
   addingStops = false;
   updateStopUI();
   b.disabled = true; b.innerText = "⏳ Arvutan teekonda...";
   extraMks.forEach(m => map.removeLayer(m)); extraMks = [];
 
   try {
-    ang = dir.value === 'r' ? (ang + 65) % 360 : Number(dir.value);
+    if (!keepAng) {
+      ang = dir.value === 'r' ? (ang + 55) % 360 : Number(dir.value);
+    }
 
-    // KUI ON LISATUD PEATUSED
+    // 1. KUI ON LISATUD PEATUSED (nt pood / sõber)
     if (stops.length > 0) {
-      let chain = [pos, ...stops];
-      let dFixed = await askOsrm(chain);
-      let fixedCoords = dFixed.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-      let fixedDist = dFixed.routes[0].distance;
-
+      let shopLast = document.getElementById('directHomeCheck').checked;
       let lastStop = stops[stops.length - 1];
+
+      // Mõõdame otsetee läbi peatuste ja viimasest peatusest otse koju
       let dDirectHome = await askOsrm([lastStop, pos]);
+      let directHomeCoords = dDirectHome.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
       let directHomeDist = dDirectHome.routes[0].distance;
-      let baseTotal = fixedDist + directHomeDist;
 
-      let returnCoords = dDirectHome.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-      let returnDist = directHomeDist;
+      let fullRoute = [], totalD = 0, modeText = "", allWps = [];
 
-      let directHomeOnly = document.getElementById('directHomeCheck').checked;
-
-      // Kui otsetee ei täida eesmärki JA kasutaja EI TAHA rasket kotti otse koju tuua
-      if (!directHomeOnly && baseTotal < distM * 0.92) {
-        let neededReturn = distM - fixedDist;
-        let mid = [(lastStop[0] + pos[0]) / 2, (lastStop[1] + pos[1]) / 2];
-        let baseAng = mDist(lastStop, pos) > 40 ? bearingBetween(lastStop, pos) + (90 * sideFlip) : ang;
-        let offsetD = (neededReturn - directHomeDist) * 0.45;
-
-        for (let attempt = 0; attempt < 3; attempt++) {
-          let det1 = pt(mid[0], mid[1], offsetD, baseAng - 25);
-          let det2 = pt(mid[0], mid[1], offsetD, baseAng + 25);
-          let dRet = await askOsrm([lastStop, det1, det2, pos]);
-          let rawRet = dRet.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-          returnCoords = cleanSpikes(rawRet);
-          returnDist = pathLen(returnCoords);
-
-          if (Math.abs((fixedDist + returnDist) - distM) / distM <= 0.14) break;
-          offsetD = offsetD * (neededReturn / Math.max(returnDist, 100));
+      if (shopLast) {
+        // POOD VIIMASEKS: Kõigepealt käime eelnevad peatused (kui on), siis teeme SUURE KAARE enne viimast peatust (poodi), ja poest tuleme OTSE KOJU!
+        let prePoints = [pos, ...stops.slice(0, -1)];
+        let preCoords = [pos], preDist = 0;
+        if (prePoints.length > 1) {
+          let dPre = await askOsrm(prePoints);
+          preCoords = dPre.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+          preDist = dPre.routes[0].distance;
         }
+        let detourStart = prePoints[prePoints.length - 1];
+        let dStraightToShop = await askOsrm([detourStart, lastStop]);
+        let minPossible = preDist + dStraightToShop.routes[0].distance + directHomeDist;
+
+        let legToShopCoords = dStraightToShop.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        let legToShopDist = dStraightToShop.routes[0].distance;
+
+        if (minPossible < distM * 0.92) {
+          let neededBeforeShop = distM - preDist - directHomeDist;
+          let detour = await buildDetourLeg(detourStart, lastStop, neededBeforeShop, ang);
+          legToShopCoords = detour.coords;
+          legToShopDist = detour.dist;
+        }
+
+        fullRoute = [...preCoords, ...legToShopCoords.slice(1), ...directHomeCoords.slice(1)];
+        totalD = preDist + legToShopDist + directHomeDist;
+        modeText = "Kõigepealt sammuring → lõpus P" + stops.length + " → otse koju";
+
+        let detourSamples = sampleByDist(legToShopCoords, 3);
+        allWps = [...stops.slice(0, -1), ...detourSamples, lastStop].map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join('|');
+      } else {
+        // POOD KOHE ALGUSES: Läheme otse läbi peatuste ja teeme SUURE KAARE tagasiteel koju!
+        let dFixed = await askOsrm([pos, ...stops]);
+        let fixedCoords = dFixed.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        let fixedDist = dFixed.routes[0].distance;
+
+        let returnCoords = directHomeCoords;
+        let returnDist = directHomeDist;
+
+        if ((fixedDist + directHomeDist) < distM * 0.92) {
+          let neededReturn = distM - fixedDist;
+          let detour = await buildDetourLeg(lastStop, pos, neededReturn, ang);
+          returnCoords = detour.coords;
+          returnDist = detour.dist;
+        }
+
+        fullRoute = [...fixedCoords, ...returnCoords.slice(1)];
+        totalD = fixedDist + returnDist;
+        modeText = "Otse läbi peatuste → sammuring tagasiteel koju";
+
+        let retSamples = sampleByDist(returnCoords, 3);
+        allWps = [...stops, ...retSamples].map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join('|');
       }
 
-      let fullRoute = [...fixedCoords, ...returnCoords.slice(1)];
-      let totalD = fixedDist + returnDist;
       drawGlowingRoute(fullRoute);
+      addDirectionNumbers(fullRoute);
 
       let steps = Math.round(totalD / (str.value / 100));
-      let modeText = directHomeOnly ? "otse koju (pood viimaseks)" : "koos lisakaarega";
       res.innerText = `${stops.length} peatusega: +${steps} sammu (${(totalD/1000).toFixed(2)} km)`;
-      sub.innerText = `Teekond ${modeText} • ~${Math.round(totalD/80)} min`;
-
-      let retSamples = sampleByDist(returnCoords, 3);
-      let allWps = [...stops, ...retSamples].map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join('|');
+      sub.innerText = `${modeText} • ~${Math.round(totalD/80)} min`;
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${allWps}&travelmode=walking`;
     }
 
-    // TAVALINE EDASI-TAGASI
+    // 2. TAVALINE EDASI-TAGASI (ilma peatusteta)
     else if (mode.value === 'outback') {
       let half = (distM / 2) * 0.8, d, turnPt;
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 3; i++) {
         let target = pt(pos[0], pos[1], half, ang);
         d = await askOsrm([pos, target, pos]);
         turnPt = [d.waypoints[1].location[1], d.waypoints[1].location[0]];
@@ -509,27 +556,13 @@ async function go() {
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${turnPt[0]},${turnPt[1]}&travelmode=walking`;
     }
 
-    // TAVALINE PUHAS RING
+    // 3. TAVALINE PUHAS RING (ilma peatusteta)
     else {
-      let diam = distM / 2.6, clean = [], bestLen = 0;
-      for (let attempt = 0; attempt < 4; attempt++) {
-        let p1 = pt(pos[0], pos[1], diam * 0.7, ang - 42);
-        let p2 = pt(pos[0], pos[1], diam, ang);
-        let p3 = pt(pos[0], pos[1], diam * 0.7, ang + 42);
-        let d = await askOsrm([pos, p1, p2, p3, pos]);
-        let raw = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-        clean = cleanSpikes(raw);
-        bestLen = pathLen(clean);
-        if (bestLen < distM * 0.35) { ang = (ang + 75) % 360; continue; }
-        if (Math.abs(bestLen - distM) / distM <= 0.14) break;
-        diam = diam * (distM / bestLen);
-      }
+      let detour = await buildDetourLeg(pos, pos, distM, ang);
+      let clean = detour.coords, bestLen = detour.dist;
 
       drawGlowingRoute(clean);
-      sampleByDist(clean, 3).forEach((p, idx) => {
-        let ic = L.divIcon({ className: 'num-icon', html: `${idx + 1}`, iconSize: [22, 22] });
-        extraMks.push(L.marker(p, { icon: ic }).addTo(map));
-      });
+      addDirectionNumbers(clean);
 
       let steps = Math.round(bestLen / (str.value / 100));
       res.innerText = `Puhas ring: +${steps} sammu (${(bestLen/1000).toFixed(2)} km)`;
