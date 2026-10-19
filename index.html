@@ -12,7 +12,6 @@
 
   #map { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; background: #0b0f19; }
 
-  /* Google Mapsi puhas tume režiim (neutraalne tumesinine/hall ilma lilla toonita) */
   #map.g-dark .leaflet-tile-pane {
     filter: invert(92%) hue-rotate(185deg) saturate(60%) brightness(92%) contrast(96%);
   }
@@ -22,68 +21,87 @@
     filter: none;
   }
 
-  /* Ülemine klaasjas ujuv paneel */
   .glass-top {
     position: fixed; top: 10px; left: 10px; right: 10px; z-index: 500;
     background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 20px;
-    padding: 12px 14px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+    padding: 11px 13px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
   }
 
-  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .brand { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.3px; display: flex; align-items: center; gap: 6px; }
   .brand span { color: #10b981; }
   .top-actions { display: flex; gap: 6px; }
 
   .pill-btn {
     background: rgba(51, 65, 85, 0.8); color: #f8fafc; border: 1px solid rgba(255,255,255,0.14);
-    padding: 6px 11px; border-radius: 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer; width: auto;
+    padding: 6px 10px; border-radius: 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; width: auto;
   }
   .pill-btn:active { transform: scale(0.96); }
 
-  .inputs { display: grid; grid-template-columns: 1.2fr 1.1fr 0.8fr; gap: 6px; margin-bottom: 8px; }
-  .field { background: rgba(9, 13, 22, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 5px 9px; }
-  .field label { display: block; font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; }
-  .field input { width: 100%; background: transparent; border: none; color: #fff; font-size: 0.95rem; font-weight: 800; outline: none; margin-top: 1px; }
+  .inputs { display: grid; grid-template-columns: 1.2fr 1.1fr 0.8fr; gap: 6px; margin-bottom: 7px; }
+  .field { background: rgba(9, 13, 22, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 11px; padding: 4px 8px; }
+  .field label { display: block; font-size: 0.62rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; }
+  .field input { width: 100%; background: transparent; border: none; color: #fff; font-size: 0.92rem; font-weight: 800; outline: none; }
 
-  .status-line { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 8px; padding: 0 2px; }
+  .status-line { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 7px; padding: 0 2px; }
   .status-line b { color: #10b981; }
+
+  /* Peatuste lisamise rida */
+  .stops-bar { display: flex; gap: 6px; margin-bottom: 7px; }
+  .stop-toggle {
+    flex: 1; padding: 8px 10px; border-radius: 11px; font-size: 0.82rem; font-weight: 800;
+    border: 1px dashed rgba(245, 158, 11, 0.6); background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24; cursor: pointer; text-align: center;
+  }
+  .stop-toggle.active {
+    background: #f59e0b; color: #0b0f19; border-style: solid;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.4);
+  }
+  .clear-stops {
+    padding: 8px 11px; border-radius: 11px; font-size: 0.8rem; font-weight: 800;
+    background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5; cursor: pointer; display: none;
+  }
 
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
   select {
     width: 100%; background: rgba(9, 13, 22, 0.8); color: #fff;
-    border: 1px solid rgba(255,255,255,0.12); padding: 8px 10px; border-radius: 11px;
-    font-size: 0.85rem; font-weight: 700; outline: none;
+    border: 1px solid rgba(255,255,255,0.12); padding: 7px 9px; border-radius: 11px;
+    font-size: 0.82rem; font-weight: 700; outline: none;
   }
 
   .main-btn {
-    width: 100%; padding: 11px; border-radius: 12px; border: none; cursor: pointer;
+    width: 100%; padding: 10px; border-radius: 12px; border: none; cursor: pointer;
     background: linear-gradient(135deg, #10b981, #059669); color: #042f1e;
-    font-size: 0.95rem; font-weight: 800; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
+    font-size: 0.92rem; font-weight: 800; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
   }
   .main-btn:disabled { opacity: 0.5; }
 
-  /* Alumine ujuv tulemuse paneel */
   #bar {
     position: fixed; bottom: 14px; left: 10px; right: 10px; z-index: 500; display: none;
     background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(16, 185, 129, 0.45); border-radius: 20px;
-    padding: 14px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.65);
+    padding: 13px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.65);
   }
-  .bar-btns { display: flex; gap: 6px; margin-top: 10px; }
+  .bar-btns { display: flex; gap: 6px; margin-top: 9px; }
   .b-btn { padding: 10px 8px; border-radius: 11px; font-weight: 800; font-size: 0.82rem; border: none; cursor: pointer; text-align: center; text-decoration: none; }
   .retry { background: rgba(51, 65, 85, 0.85); color: #fff; flex: 0.9; }
   .walk-btn { background: #10b981; color: #042f1e; flex: 1.3; }
   .gm { background: #3b82f6; color: #fff; flex: 1.1; }
 
-  /* Moodne pulseeriv alguspunkti ikoon */
   .start-pin {
     width: 22px; height: 22px; border-radius: 50%; background: #10b981;
     border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.35), 0 4px 10px rgba(0,0,0,0.5);
   }
+  .stop-pin {
+    background: #f59e0b; color: #0b0f19; border: 2px solid #fff; border-radius: 50%;
+    font-weight: 900; font-size: 11px; text-align: center; line-height: 22px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.6);
+  }
   .num-icon {
     background: #0f172a; color: #10b981; border: 2px solid #10b981; border-radius: 50%;
-    font-weight: 800; font-size: 11px; text-align: center; line-height: 20px;
+    font-weight: 800; font-size: 11px; text-align: center; line-height: 18px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.5);
   }
 </style>
@@ -107,6 +125,11 @@
 
   <div class="status-line" id="info">Vaja (+5% varuga): <b>2380 sammu</b> (~1.81 km)</div>
 
+  <div class="stops-bar">
+    <button class="stop-toggle" id="addStopBtn" onclick="toggleStopMode()">➕ Lisa peatus kaardile (0)</button>
+    <button class="clear-stops" id="clearStopsBtn" onclick="clearStops()">🗑️ Nulli</button>
+  </div>
+
   <div class="controls">
     <select id="mode">
       <option value="loop">🔄 Puhas ring</option>
@@ -127,24 +150,25 @@
 <div id="map" class="g-light"></div>
 
 <div id="bar">
-  <div id="res" style="font-weight:800;font-size:1rem;"></div>
-  <div id="sub" style="font-size:0.8rem;color:#94a3b8;margin-top:2px;"></div>
+  <div id="res" style="font-weight:800;font-size:0.98rem;"></div>
+  <div id="sub" style="font-size:0.78rem;color:#94a3b8;margin-top:2px;"></div>
   <div class="bar-btns">
-    <button class="b-btn retry" onclick="nextDir()">🎲 Uus</button>
+    <button class="b-btn retry" onclick="nextDir()">🎲 Uus kaar</button>
     <button class="b-btn walk-btn" id="walkBtn" onclick="toggleWalk()">🧭 Kõnni kaardil</button>
     <a id="gm" class="b-btn gm" target="_blank">🗺️ Maps</a>
   </div>
 </div>
 
 <script>
-let pos = [61.1715, 25.5415], distM = 1809, ang = 135, glowLayer, layer, extraMks = [];
+let pos = [61.1715, 25.5415], distM = 1809, ang = 135, sideFlip = 1;
+let glowLayer, layer, extraMks = [];
+let stops = [], stopMks = [], addingStops = false;
 let watchId = null, liveDot = null, liveCircle = null;
 if (localStorage.sr_lat) pos = [Number(localStorage.sr_lat), Number(localStorage.sr_lon)];
 
 const mapEl = document.getElementById('map');
 const map = L.map('map', { zoomControl: false }).setView(pos, 15);
 
-// Päris Google Mapsi kõrge resolutsiooniga (Retina scale=2) kaardikihid
 const styles = [
   { name: "☀️ Hele", cls: "g-light", url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2" },
   { name: "🌙 Tume", cls: "g-dark", url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2" },
@@ -181,8 +205,66 @@ function setPos(lat, lon) {
   pos = [lat, lon]; mk.setLatLng(pos);
   localStorage.sr_lat = lat; localStorage.sr_lon = lon;
 }
-map.on('click', e => setPos(e.latlng.lat, e.latlng.lng));
+
+// Kaardil klikkimine: kas lisab vahepeatuse või liigutab alguspunkti
+map.on('click', e => {
+  if (addingStops) {
+    addStop(e.latlng.lat, e.latlng.lng);
+  } else {
+    setPos(e.latlng.lat, e.latlng.lng);
+  }
+});
 mk.on('dragend', e => { let p = e.target.getLatLng(); setPos(p.lat, p.lng); });
+
+function toggleStopMode() {
+  addingStops = !addingStops;
+  updateStopUI();
+}
+
+function addStop(lat, lon) {
+  stops.push([lat, lon]);
+  renderStops();
+}
+
+function clearStops() {
+  stops = [];
+  addingStops = false;
+  renderStops();
+}
+
+function renderStops() {
+  stopMks.forEach(m => map.removeLayer(m));
+  stopMks = [];
+  stops.forEach((s, idx) => {
+    const ic = L.divIcon({ className: 'stop-pin', html: `P${idx + 1}`, iconSize: [26, 26], iconAnchor: [13, 13] });
+    const m = L.marker(s, { draggable: true, icon: ic }).addTo(map);
+    m.on('dragend', e => {
+      const p = e.target.getLatLng();
+      stops[idx] = [p.lat, p.lng];
+    });
+    // Peatusel klikkides saab selle üksiku peatuse kustutada
+    m.on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      stops.splice(idx, 1);
+      renderStops();
+    });
+    stopMks.push(m);
+  });
+  updateStopUI();
+}
+
+function updateStopUI() {
+  const btn = document.getElementById('addStopBtn');
+  const clr = document.getElementById('clearStopsBtn');
+  if (addingStops) {
+    btn.className = "stop-toggle active";
+    btn.innerText = `📍 Puuduta kaarti! (Peatusi: ${stops.length})`;
+  } else {
+    btn.className = "stop-toggle";
+    btn.innerText = `➕ Lisa peatus kaardile (${stops.length})`;
+  }
+  clr.style.display = stops.length > 0 ? "block" : "none";
+}
 
 function calc() {
   let miss = Math.max(0, (goal.value - cur.value) * 1.05);
@@ -228,6 +310,14 @@ function mDist(a, b) {
   return Math.hypot(dLat, dLon * Math.cos((a[0] + b[0]) * 0.5 * toR)) * 6371000;
 }
 
+function bearingBetween(a, b) {
+  let toR = Math.PI / 180;
+  let dLon = (b[1] - a[1]) * toR;
+  let y = Math.sin(dLon) * Math.cos(b[0] * toR);
+  let x = Math.cos(a[0] * toR) * Math.sin(b[0] * toR) - Math.sin(a[0] * toR) * Math.cos(b[0] * toR) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+}
+
 function pathLen(pts) {
   let s = 0;
   for (let i = 1; i < pts.length; i++) s += mDist(pts[i - 1], pts[i]);
@@ -267,6 +357,7 @@ function cleanSpikes(rawCoords) {
 }
 
 function sampleByDist(pts, count) {
+  if (pts.length < 2) return pts;
   let cum = [0];
   for (let i = 1; i < pts.length; i++) cum[i] = cum[i - 1] + mDist(pts[i - 1], pts[i]);
   let tot = cum[cum.length - 1], res = [];
@@ -291,19 +382,80 @@ function drawGlowingRoute(coords) {
   if (layer) map.removeLayer(layer);
   glowLayer = L.polyline(coords, { color: '#10b981', weight: 14, opacity: 0.3 }).addTo(map);
   layer = L.polyline(coords, { color: '#059669', weight: 6, opacity: 1 }).addTo(map);
-  map.fitBounds(layer.getBounds(), { paddingTopLeft: [20, 210], paddingBottomRight: [20, 120] });
+  map.fitBounds(layer.getBounds(), { paddingTopLeft: [20, 240], paddingBottomRight: [20, 120] });
 }
 
-function nextDir() { dir.value = 'r'; go(); }
+function nextDir() {
+  dir.value = 'r';
+  sideFlip = -sideFlip;
+  go();
+}
 
 async function go() {
-  b.disabled = true; b.innerText = "⏳ Otsin parimat teed...";
+  addingStops = false;
+  updateStopUI();
+  b.disabled = true; b.innerText = "⏳ Arvutan teekonda...";
   extraMks.forEach(m => map.removeLayer(m)); extraMks = [];
 
   try {
     ang = dir.value === 'r' ? (ang + 65) % 360 : Number(dir.value);
 
-    if (mode.value === 'outback') {
+    // 1. KUI ON LISATUD PEATUSED (nt pood + sõber)
+    if (stops.length > 0) {
+      let chain = [pos, ...stops];
+      let fixedCoords = [];
+      let fixedDist = 0;
+
+      // Arvutame täpse tee läbi kõikide lisatud peatuste (ilma neid lõikamata!)
+      let dFixed = await askOsrm(chain);
+      fixedCoords = dFixed.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      fixedDist = dFixed.routes[0].distance;
+
+      let lastStop = stops[stops.length - 1];
+      let dDirectHome = await askOsrm([lastStop, pos]);
+      let directHomeDist = dDirectHome.routes[0].distance;
+      let baseTotal = fixedDist + directHomeDist;
+
+      let returnCoords = dDirectHome.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      let returnDist = directHomeDist;
+
+      // Kui otsetee koju jätab sammud puudu, venitame tagasitee parajaks kaareks!
+      if (baseTotal < distM * 0.92) {
+        let neededReturn = distM - fixedDist;
+        let mid = [(lastStop[0] + pos[0]) / 2, (lastStop[1] + pos[1]) / 2];
+        let baseAng = mDist(lastStop, pos) > 40 ? bearingBetween(lastStop, pos) + (90 * sideFlip) : ang;
+        let offsetD = (neededReturn - directHomeDist) * 0.45;
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          let det1 = pt(mid[0], mid[1], offsetD, baseAng - 25);
+          let det2 = pt(mid[0], mid[1], offsetD, baseAng + 25);
+          let dRet = await askOsrm([lastStop, det1, det2, pos]);
+          let rawRet = dRet.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+          returnCoords = cleanSpikes(rawRet);
+          returnDist = pathLen(returnCoords);
+
+          if (Math.abs((fixedDist + returnDist) - distM) / distM <= 0.14) break;
+          offsetD = offsetD * (neededReturn / Math.max(returnDist, 100));
+        }
+      }
+
+      let fullRoute = [...fixedCoords, ...returnCoords.slice(1)];
+      let totalD = fixedDist + returnDist;
+      drawGlowingRoute(fullRoute);
+
+      let steps = Math.round(totalD / (str.value / 100));
+      let extraInfo = baseTotal < distM * 0.92 ? "koos lisakaarega" : "otse läbi peatuste";
+      res.innerText = `${stops.length} peatusega: +${steps} sammu (${(totalD/1000).toFixed(2)} km)`;
+      sub.innerText = `Teekond ${extraInfo} • ~${Math.round(totalD/80)} min kõndi`;
+
+      // Saadame Google Mapsi kõik sinu peatused + tagasitee kaare punktid
+      let retSamples = sampleByDist(returnCoords, 3);
+      let allWps = [...stops, ...retSamples].map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join('|');
+      gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${allWps}&travelmode=walking`;
+    }
+
+    // 2. TAVALINE EDASI-TAGASI REŽIIM (ilma peatusteta)
+    else if (mode.value === 'outback') {
       let half = (distM / 2) * 0.8, d, turnPt;
       for (let i = 0; i < 2; i++) {
         let target = pt(pos[0], pos[1], half, ang);
@@ -321,7 +473,10 @@ async function go() {
       res.innerText = `Edasi-tagasi: +${steps} sammu (${(totalD/1000).toFixed(2)} km)`;
       sub.innerText = `Pöördepunkt ${(totalD/2000).toFixed(2)} km kaugusel • ~${Math.round(totalD/80)} min`;
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${turnPt[0]},${turnPt[1]}&travelmode=walking`;
-    } else {
+    }
+
+    // 3. TAVALINE PUHAS RING (ilma peatusteta)
+    else {
       let diam = distM / 2.6, clean = [], bestLen = 0;
       for (let attempt = 0; attempt < 4; attempt++) {
         let p1 = pt(pos[0], pos[1], diam * 0.7, ang - 42);
