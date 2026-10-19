@@ -23,9 +23,10 @@
 
   .glass-top {
     position: fixed; top: 10px; left: 10px; right: 10px; z-index: 500;
-    background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 20px;
     padding: 11px 13px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+    max-height: 90vh; overflow-y: auto;
   }
 
   .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -47,22 +48,27 @@
   .status-line { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 7px; padding: 0 2px; }
   .status-line b { color: #10b981; }
 
-  /* Peatuste lisamise rida */
-  .stops-bar { display: flex; gap: 6px; margin-bottom: 7px; }
+  .stops-bar { display: flex; gap: 6px; margin-bottom: 6px; }
   .stop-toggle {
-    flex: 1; padding: 8px 10px; border-radius: 11px; font-size: 0.82rem; font-weight: 800;
+    flex: 1; padding: 7px 10px; border-radius: 11px; font-size: 0.8rem; font-weight: 800;
     border: 1px dashed rgba(245, 158, 11, 0.6); background: rgba(245, 158, 11, 0.12);
     color: #fbbf24; cursor: pointer; text-align: center;
   }
-  .stop-toggle.active {
-    background: #f59e0b; color: #0b0f19; border-style: solid;
-    box-shadow: 0 0 14px rgba(245, 158, 11, 0.4);
-  }
+  .stop-toggle.active { background: #f59e0b; color: #0b0f19; border-style: solid; box-shadow: 0 0 14px rgba(245, 158, 11, 0.4); }
   .clear-stops {
-    padding: 8px 11px; border-radius: 11px; font-size: 0.8rem; font-weight: 800;
+    padding: 7px 10px; border-radius: 11px; font-size: 0.78rem; font-weight: 800;
     background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4);
     color: #fca5a5; cursor: pointer; display: none;
   }
+
+  /* Peatuste haldusloend ja koti-lüliti */
+  #stopsPanel { display: none; background: rgba(9, 13, 22, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px; margin-bottom: 7px; }
+  .stop-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .stop-item:last-child { border-bottom: none; }
+  .stop-actions-btns { display: flex; gap: 4px; }
+  .stop-action-btn { background: #334155; color: #fff; border: none; padding: 2px 6px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+  
+  .bag-toggle-row { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #cbd5e1; margin-top: 6px; cursor: pointer; font-weight: 600; }
 
   .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
   select {
@@ -126,8 +132,16 @@
   <div class="status-line" id="info">Vaja (+5% varuga): <b>2380 sammu</b> (~1.81 km)</div>
 
   <div class="stops-bar">
-    <button class="stop-toggle" id="addStopBtn" onclick="toggleStopMode()">➕ Lisa peatus kaardile (0)</button>
+    <button class="stop-toggle" id="addStopBtn" onclick="toggleStopMode()">➕ Lisa peatus (0)</button>
     <button class="clear-stops" id="clearStopsBtn" onclick="clearStops()">🗑️ Nulli</button>
+  </div>
+
+  <!-- Peatuste haldamise kast ja otsetee lüliti -->
+  <div id="stopsPanel">
+    <div id="stopsList"></div>
+    <label class="bag-toggle-row">
+      <input type="checkbox" id="directHomeCheck" checked> 🛍️ Pood viimaseks (otse koju, ilma lisaringita)
+    </label>
   </div>
 
   <div class="controls">
@@ -206,7 +220,6 @@ function setPos(lat, lon) {
   localStorage.sr_lat = lat; localStorage.sr_lon = lon;
 }
 
-// Kaardil klikkimine: kas lisab vahepeatuse või liigutab alguspunkti
 map.on('click', e => {
   if (addingStops) {
     addStop(e.latlng.lat, e.latlng.lng);
@@ -232,9 +245,25 @@ function clearStops() {
   renderStops();
 }
 
+function moveStop(idx, dir) {
+  let newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= stops.length) return;
+  let temp = stops[idx];
+  stops[idx] = stops[newIdx];
+  stops[newIdx] = temp;
+  renderStops();
+}
+
+function removeStop(idx) {
+  stops.splice(idx, 1);
+  renderStops();
+}
+
 function renderStops() {
   stopMks.forEach(m => map.removeLayer(m));
   stopMks = [];
+  
+  let listHtml = "";
   stops.forEach((s, idx) => {
     const ic = L.divIcon({ className: 'stop-pin', html: `P${idx + 1}`, iconSize: [26, 26], iconAnchor: [13, 13] });
     const m = L.marker(s, { draggable: true, icon: ic }).addTo(map);
@@ -242,14 +271,22 @@ function renderStops() {
       const p = e.target.getLatLng();
       stops[idx] = [p.lat, p.lng];
     });
-    // Peatusel klikkides saab selle üksiku peatuse kustutada
-    m.on('click', e => {
-      L.DomEvent.stopPropagation(e);
-      stops.splice(idx, 1);
-      renderStops();
-    });
     stopMks.push(m);
+
+    listHtml += `
+      <div class="stop-item">
+        <span><b>P${idx + 1}</b> (Peatus)</span>
+        <div class="stop-actions-btns">
+          <button class="stop-action-btn" onclick="moveStop(${idx}, -1)">⬆️</button>
+          <button class="stop-action-btn" onclick="moveStop(${idx}, 1)">⬇️</button>
+          <button class="stop-action-btn" style="background:#ef4444;" onclick="removeStop(${idx})">✕</button>
+        </div>
+      </div>
+    `;
   });
+
+  document.getElementById('stopsList').innerHTML = listHtml;
+  document.getElementById('stopsPanel').style.display = stops.length > 0 ? "block" : "none";
   updateStopUI();
 }
 
@@ -258,10 +295,10 @@ function updateStopUI() {
   const clr = document.getElementById('clearStopsBtn');
   if (addingStops) {
     btn.className = "stop-toggle active";
-    btn.innerText = `📍 Puuduta kaarti! (Peatusi: ${stops.length})`;
+    btn.innerText = `📍 Kliki kaarti, et lisada! (${stops.length})`;
   } else {
     btn.className = "stop-toggle";
-    btn.innerText = `➕ Lisa peatus kaardile (${stops.length})`;
+    btn.innerText = `➕ Lisa peatus (${stops.length})`;
   }
   clr.style.display = stops.length > 0 ? "block" : "none";
 }
@@ -276,7 +313,7 @@ function gps() {
   navigator.geolocation.getCurrentPosition(p => {
     setPos(p.coords.latitude, p.coords.longitude);
     map.setView(pos, 16);
-  }, () => alert("GPS ei vastanud, puuduta kaarti oma asukohas!"));
+  }, () => alert("GPS ei vastanud!"));
 }
 
 function toggleWalk() {
@@ -400,16 +437,12 @@ async function go() {
   try {
     ang = dir.value === 'r' ? (ang + 65) % 360 : Number(dir.value);
 
-    // 1. KUI ON LISATUD PEATUSED (nt pood + sõber)
+    // KUI ON LISATUD PEATUSED
     if (stops.length > 0) {
       let chain = [pos, ...stops];
-      let fixedCoords = [];
-      let fixedDist = 0;
-
-      // Arvutame täpse tee läbi kõikide lisatud peatuste (ilma neid lõikamata!)
       let dFixed = await askOsrm(chain);
-      fixedCoords = dFixed.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-      fixedDist = dFixed.routes[0].distance;
+      let fixedCoords = dFixed.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      let fixedDist = dFixed.routes[0].distance;
 
       let lastStop = stops[stops.length - 1];
       let dDirectHome = await askOsrm([lastStop, pos]);
@@ -419,8 +452,10 @@ async function go() {
       let returnCoords = dDirectHome.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
       let returnDist = directHomeDist;
 
-      // Kui otsetee koju jätab sammud puudu, venitame tagasitee parajaks kaareks!
-      if (baseTotal < distM * 0.92) {
+      let directHomeOnly = document.getElementById('directHomeCheck').checked;
+
+      // Kui otsetee ei täida eesmärki JA kasutaja EI TAHA rasket kotti otse koju tuua
+      if (!directHomeOnly && baseTotal < distM * 0.92) {
         let neededReturn = distM - fixedDist;
         let mid = [(lastStop[0] + pos[0]) / 2, (lastStop[1] + pos[1]) / 2];
         let baseAng = mDist(lastStop, pos) > 40 ? bearingBetween(lastStop, pos) + (90 * sideFlip) : ang;
@@ -444,17 +479,16 @@ async function go() {
       drawGlowingRoute(fullRoute);
 
       let steps = Math.round(totalD / (str.value / 100));
-      let extraInfo = baseTotal < distM * 0.92 ? "koos lisakaarega" : "otse läbi peatuste";
+      let modeText = directHomeOnly ? "otse koju (pood viimaseks)" : "koos lisakaarega";
       res.innerText = `${stops.length} peatusega: +${steps} sammu (${(totalD/1000).toFixed(2)} km)`;
-      sub.innerText = `Teekond ${extraInfo} • ~${Math.round(totalD/80)} min kõndi`;
+      sub.innerText = `Teekond ${modeText} • ~${Math.round(totalD/80)} min`;
 
-      // Saadame Google Mapsi kõik sinu peatused + tagasitee kaare punktid
       let retSamples = sampleByDist(returnCoords, 3);
       let allWps = [...stops, ...retSamples].map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join('|');
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${allWps}&travelmode=walking`;
     }
 
-    // 2. TAVALINE EDASI-TAGASI REŽIIM (ilma peatusteta)
+    // TAVALINE EDASI-TAGASI
     else if (mode.value === 'outback') {
       let half = (distM / 2) * 0.8, d, turnPt;
       for (let i = 0; i < 2; i++) {
@@ -475,7 +509,7 @@ async function go() {
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${turnPt[0]},${turnPt[1]}&travelmode=walking`;
     }
 
-    // 3. TAVALINE PUHAS RING (ilma peatusteta)
+    // TAVALINE PUHAS RING
     else {
       let diam = distM / 2.6, clean = [], bestLen = 0;
       for (let attempt = 0; attempt < 4; attempt++) {
