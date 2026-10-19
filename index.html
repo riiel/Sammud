@@ -377,7 +377,8 @@ function cleanSpikes(rawCoords) {
       for (let j = pts.length - 1; j > i + 3; j--) {
         if (cum[i] < 45 && (tot - cum[j]) < 45) continue;
         let sub = cum[j] - cum[i], direct = mDist(pts[i], pts[j]);
-        if (sub > 25 && sub < tot * 0.65 && direct < 32 && sub > direct * 2.3) {
+        // Lõikame ainult tõelised edasi-tagasi tupikud (<18m laiad), et mitte lõigata üle jõe
+        if (sub > 25 && sub < tot * 0.55 && direct < 18 && sub > direct * 3.0) {
           pts.splice(i + 1, j - i); changed = true; break;
         }
       }
@@ -407,26 +408,49 @@ async function askOsrm(pts) {
   return d;
 }
 
-// Ehitab kahe punkti (fromPt -> toPt) vahele täpselt targetLegM pikkuse puhta kaare suunas baseAng
-async function buildDetourLeg(fromPt, toPt, targetLegM, baseAng) {
-  let mid = [(fromPt[0] + toPt[0]) / 2, (fromPt[1] + toPt[1]) / 2];
-  let rad = Math.max(120, targetLegM / 3.1);
-  let bestClean = [], bestLen = 0;
+// Nutikas kaare ehitaja: jätab meelde KÕIGE TÄPSEMA katse ja vahetab suunda, kui ees on jõgi või tupik
+async function buildDetourLeg(fromPt, toPt, targetLegM, startAng) {
+  let bestCandidate = null;
+  let bestError = Infinity;
 
-  for (let attempt = 0; attempt < 4; attempt++) {
-    let p1 = pt(mid[0], mid[1], rad * 0.78, baseAng - 38);
-    let p2 = pt(mid[0], mid[1], rad, baseAng);
-    let p3 = pt(mid[0], mid[1], rad * 0.78, baseAng + 38);
-    let d = await askOsrm([fromPt, p1, p2, p3, toPt]);
-    let raw = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-    bestClean = cleanSpikes(raw);
-    bestLen = pathLen(bestClean);
+  // Proovime kuni 3 suunda (kui esimeses suunas on jõgi/takistus ja viga jääb >18%)
+  for (let dirTry = 0; dirTry < 3; dirTry++) {
+    let curAng = (startAng + dirTry * 65) % 360;
+    let rad = Math.max(100, targetLegM / 3.4);
 
-    if (Math.abs(bestLen - targetLegM) / targetLegM <= 0.12) break;
-    let ratio = targetLegM / Math.max(bestLen, 100);
-    rad = rad * Math.min(2.4, Math.max(0.4, ratio));
+    for (let attempt = 0; attempt < 4; attempt++) {
+      // Arvutame kaare punktid otse alguspunkti suhtes, et vältida hüppeid üle jõe
+      let p1 = pt(fromPt[0], fromPt[1], rad * 0.72, curAng - 36);
+      let p2 = pt(fromPt[0], fromPt[1], rad, curAng);
+      let p3 = pt(toPt[0], toPt[1], rad * 0.72, curAng + 36);
+
+      let d = await askOsrm([fromPt, p1, p2, p3, toPt]);
+      let raw = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      let clean = cleanSpikes(raw);
+      let len = pathLen(clean);
+
+      let err = Math.abs(len - targetLegM) / targetLegM;
+
+      // Jätame meelde kõige täpsema tulemuse (mitte viimase!)
+      if (err < bestError && len > targetLegM * 0.4) {
+        bestError = err;
+        bestCandidate = { coords: clean, dist: len, angUsed: curAng };
+      }
+
+      // Kui täpsus on +-12% piires, oleme leidnud ideaalse ringi!
+      if (err <= 0.12) break;
+
+      if (len < 50) { rad *= 1.5; continue; }
+      let ratio = targetLegM / len;
+      // Sujuv skaleerimine, et vältida ülevõimendamist
+      rad = rad * Math.pow(Math.min(2.2, Math.max(0.35, ratio)), 0.85);
+    }
+
+    // Kui leidsime selles suunas mõistliku täpsusega tee (<18% viga), ei pea uut suunda otsima
+    if (bestError <= 0.18) break;
   }
-  return { coords: bestClean, dist: bestLen };
+
+  return bestCandidate;
 }
 
 function drawGlowingRoute(coords) {
@@ -446,19 +470,19 @@ function addDirectionNumbers(coords) {
 
 function nextDir() {
   dir.value = 'r';
-  ang = (ang + 55) % 360;
+  ang = (ang + 60) % 360;
   go(true);
 }
 
 async function go(keepAng = false) {
   addingStops = false;
   updateStopUI();
-  b.disabled = true; b.innerText = "⏳ Arvutan teekonda...";
+  b.disabled = true; b.innerText = "⏳ Arvutan täpset teed...";
   extraMks.forEach(m => map.removeLayer(m)); extraMks = [];
 
   try {
     if (!keepAng) {
-      ang = dir.value === 'r' ? (ang + 55) % 360 : Number(dir.value);
+      ang = dir.value === 'r' ? (ang + 60) % 360 : Number(dir.value);
     }
 
     // 1. KUI ON LISATUD PEATUSED (nt pood / sõber)
@@ -466,7 +490,6 @@ async function go(keepAng = false) {
       let shopLast = document.getElementById('directHomeCheck').checked;
       let lastStop = stops[stops.length - 1];
 
-      // Mõõdame otsetee läbi peatuste ja viimasest peatusest otse koju
       let dDirectHome = await askOsrm([lastStop, pos]);
       let directHomeCoords = dDirectHome.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
       let directHomeDist = dDirectHome.routes[0].distance;
@@ -474,7 +497,6 @@ async function go(keepAng = false) {
       let fullRoute = [], totalD = 0, modeText = "", allWps = [];
 
       if (shopLast) {
-        // POOD VIIMASEKS: Kõigepealt käime eelnevad peatused (kui on), siis teeme SUURE KAARE enne viimast peatust (poodi), ja poest tuleme OTSE KOJU!
         let prePoints = [pos, ...stops.slice(0, -1)];
         let preCoords = [pos], preDist = 0;
         if (prePoints.length > 1) {
@@ -490,10 +512,13 @@ async function go(keepAng = false) {
         let legToShopDist = dStraightToShop.routes[0].distance;
 
         if (minPossible < distM * 0.92) {
-          let neededBeforeShop = distM - preDist - directHomeDist;
+          let neededBeforeShop = Math.max(200, distM - preDist - directHomeDist);
           let detour = await buildDetourLeg(detourStart, lastStop, neededBeforeShop, ang);
-          legToShopCoords = detour.coords;
-          legToShopDist = detour.dist;
+          if (detour) {
+            legToShopCoords = detour.coords;
+            legToShopDist = detour.dist;
+            ang = detour.angUsed;
+          }
         }
 
         fullRoute = [...preCoords, ...legToShopCoords.slice(1), ...directHomeCoords.slice(1)];
@@ -503,7 +528,6 @@ async function go(keepAng = false) {
         let detourSamples = sampleByDist(legToShopCoords, 3);
         allWps = [...stops.slice(0, -1), ...detourSamples, lastStop].map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join('|');
       } else {
-        // POOD KOHE ALGUSES: Läheme otse läbi peatuste ja teeme SUURE KAARE tagasiteel koju!
         let dFixed = await askOsrm([pos, ...stops]);
         let fixedCoords = dFixed.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
         let fixedDist = dFixed.routes[0].distance;
@@ -512,10 +536,13 @@ async function go(keepAng = false) {
         let returnDist = directHomeDist;
 
         if ((fixedDist + directHomeDist) < distM * 0.92) {
-          let neededReturn = distM - fixedDist;
+          let neededReturn = Math.max(200, distM - fixedDist);
           let detour = await buildDetourLeg(lastStop, pos, neededReturn, ang);
-          returnCoords = detour.coords;
-          returnDist = detour.dist;
+          if (detour) {
+            returnCoords = detour.coords;
+            returnDist = detour.dist;
+            ang = detour.angUsed;
+          }
         }
 
         fullRoute = [...fixedCoords, ...returnCoords.slice(1)];
@@ -537,29 +564,32 @@ async function go(keepAng = false) {
 
     // 2. TAVALINE EDASI-TAGASI (ilma peatusteta)
     else if (mode.value === 'outback') {
-      let half = (distM / 2) * 0.8, d, turnPt;
-      for (let i = 0; i < 3; i++) {
+      let half = (distM / 2) * 0.8, bestD = null, bestTurn = null, bestErr = Infinity;
+      for (let i = 0; i < 4; i++) {
         let target = pt(pos[0], pos[1], half, ang);
-        d = await askOsrm([pos, target, pos]);
-        turnPt = [d.waypoints[1].location[1], d.waypoints[1].location[0]];
+        let d = await askOsrm([pos, target, pos]);
+        let turnPt = [d.waypoints[1].location[1], d.waypoints[1].location[0]];
         let realD = d.routes[0].distance;
-        if (Math.abs(realD - distM) / distM < 0.1) break;
-        half = half * (distM / (realD || distM));
+        let err = Math.abs(realD - distM) / distM;
+        if (err < bestErr) { bestErr = err; bestD = d; bestTurn = turnPt; }
+        if (err < 0.08) break;
+        half = half * Math.pow(distM / (realD || distM), 0.85);
       }
-      let coords = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      let coords = bestD.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
       drawGlowingRoute(coords);
-      extraMks.push(L.circleMarker(turnPt, { radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(map));
+      extraMks.push(L.circleMarker(bestTurn, { radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(map));
 
-      let totalD = d.routes[0].distance, steps = Math.round(totalD / (str.value / 100));
+      let totalD = bestD.routes[0].distance, steps = Math.round(totalD / (str.value / 100));
       res.innerText = `Edasi-tagasi: +${steps} sammu (${(totalD/1000).toFixed(2)} km)`;
       sub.innerText = `Pöördepunkt ${(totalD/2000).toFixed(2)} km kaugusel • ~${Math.round(totalD/80)} min`;
-      gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${turnPt[0]},${turnPt[1]}&travelmode=walking`;
+      gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${bestTurn[0]},${bestTurn[1]}&travelmode=walking`;
     }
 
     // 3. TAVALINE PUHAS RING (ilma peatusteta)
     else {
       let detour = await buildDetourLeg(pos, pos, distM, ang);
       let clean = detour.coords, bestLen = detour.dist;
+      ang = detour.angUsed;
 
       drawGlowingRoute(clean);
       addDirectionNumbers(clean);
