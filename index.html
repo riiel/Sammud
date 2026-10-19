@@ -2,40 +2,103 @@
 <html lang="et">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Sammuring</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-  body { background: #0f172a; color: #fff; }
-  .p { padding: 10px 12px; background: #1e293b; border-bottom: 1px solid #334155; }
-  .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 7px; }
-  input, select, button { padding: 8px 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; font-weight: 700; width: 100%; font-size: 0.9rem; }
-  .btn { background: #10b981; color: #052e16; border: none; cursor: pointer; }
-  .btn:disabled { opacity: 0.5; }
-  #map { width: 100%; height: 64vh; min-height: 340px; background: #334155; }
-  #bar { position: fixed; bottom: 10px; left: 10px; right: 10px; background: #1e293b; padding: 12px; border-radius: 12px; z-index: 999; display: none; border: 1px solid #10b981; box-shadow: 0 10px 25px rgba(0,0,0,0.6); }
-  .bar-btns { display: flex; gap: 6px; margin-top: 8px; }
-  .gm { display: block; text-align: center; background: #3b82f6; color: #fff; padding: 10px 8px; border-radius: 8px; text-decoration: none; font-weight: 700; flex: 1.2; font-size: 0.85rem; }
-  .walk-btn { background: #10b981; color: #052e16; border: none; flex: 1.3; cursor: pointer; font-size: 0.85rem; }
-  .retry { background: #334155; color: #fff; border: none; flex: 0.9; cursor: pointer; font-size: 0.85rem; }
-  .num-icon { background: #0f172a; color: #10b981; border: 2px solid #10b981; border-radius: 50%; font-weight: 800; font-size: 12px; text-align: center; line-height: 20px; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body, html { width: 100%; height: 100%; overflow: hidden; background: #090d16; color: #f8fafc; }
+
+  /* Täisekraanil kaart */
+  #map { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; background: #090d16; }
+
+  /* Ülemine klaasjas ujuv paneel */
+  .glass-top {
+    position: fixed; top: 10px; left: 10px; right: 10px; z-index: 500;
+    background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 18px;
+    padding: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .brand { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.3px; display: flex; align-items: center; gap: 6px; }
+  .brand span { color: #10b981; }
+  .top-actions { display: flex; gap: 6px; }
+
+  .pill-btn {
+    background: rgba(51, 65, 85, 0.7); color: #f8fafc; border: 1px solid rgba(255,255,255,0.1);
+    padding: 6px 10px; border-radius: 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer; width: auto;
+  }
+  .pill-btn:active { transform: scale(0.96); }
+
+  .inputs { display: grid; grid-template-columns: 1.2fr 1.1fr 0.8fr; gap: 6px; margin-bottom: 8px; }
+  .field { background: rgba(9, 13, 22, 0.65); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 5px 9px; }
+  .field label { display: block; font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; }
+  .field input { width: 100%; background: transparent; border: none; color: #fff; font-size: 0.95rem; font-weight: 800; outline: none; margin-top: 1px; }
+
+  .status-line { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 8px; padding: 0 2px; }
+  .status-line b { color: #10b981; }
+
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  select {
+    width: 100%; background: rgba(9, 13, 22, 0.75); color: #fff;
+    border: 1px solid rgba(255,255,255,0.1); padding: 8px 10px; border-radius: 11px;
+    font-size: 0.85rem; font-weight: 700; outline: none;
+  }
+
+  .main-btn {
+    width: 100%; padding: 11px; border-radius: 12px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #10b981, #059669); color: #042f1e;
+    font-size: 0.95rem; font-weight: 800; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.35);
+  }
+  .main-btn:disabled { opacity: 0.5; }
+
+  /* Alumine ujuv tulemuse paneel */
+  #bar {
+    position: fixed; bottom: 14px; left: 10px; right: 10px; z-index: 500; display: none;
+    background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 18px;
+    padding: 14px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+  }
+  .bar-btns { display: flex; gap: 6px; margin-top: 10px; }
+  .b-btn { padding: 10px 8px; border-radius: 11px; font-weight: 800; font-size: 0.82rem; border: none; cursor: pointer; text-align: center; text-decoration: none; }
+  .retry { background: rgba(51, 65, 85, 0.8); color: #fff; flex: 0.9; }
+  .walk-btn { background: #10b981; color: #042f1e; flex: 1.3; }
+  .gm { background: #3b82f6; color: #fff; flex: 1.1; }
+
+  /* Moodne pulseeriv alguspunkti ikoon */
+  .start-pin {
+    width: 22px; height: 22px; border-radius: 50%; background: #10b981;
+    border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.35), 0 4px 10px rgba(0,0,0,0.5);
+  }
+  .num-icon {
+    background: #0f172a; color: #10b981; border: 2px solid #10b981; border-radius: 50%;
+    font-weight: 800; font-size: 11px; text-align: center; line-height: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
 </style>
 </head>
 <body>
-<div class="p">
-  <div class="row">
-    <b>👟 Sammuring</b>
-    <button onclick="gps()" style="width:auto;background:#334155;">📍 Minu asukoht</button>
+
+<div class="glass-top">
+  <div class="top-bar">
+    <div class="brand">👟 Sammu<span>ring</span></div>
+    <div class="top-actions">
+      <button class="pill-btn" id="styleBtn" onclick="cycleStyle()">🎨 Tume</button>
+      <button class="pill-btn" onclick="gps()">📍 Asukoht</button>
+    </div>
   </div>
-  <div class="row">
-    <input type="number" id="cur" value="7733" oninput="calc()" placeholder="Tehtud">
-    <input type="number" id="goal" value="10000" oninput="calc()" placeholder="Eesmärk">
-    <input type="number" id="str" value="76" oninput="calc()" style="width:75px" placeholder="cm">
+
+  <div class="inputs">
+    <div class="field"><label>Tehtud</label><input type="number" id="cur" value="7733" oninput="calc()"></div>
+    <div class="field"><label>Eesmärk</label><input type="number" id="goal" value="10000" oninput="calc()"></div>
+    <div class="field"><label>Samm cm</label><input type="number" id="str" value="76" oninput="calc()"></div>
   </div>
-  <div class="row" style="font-size:13px;color:#10b981;" id="info">Vaja: 2380 sammu (~1.81 km)</div>
-  <div class="row">
+
+  <div class="status-line" id="info">Vaja (+5% varuga): <b>2380 sammu</b> (~1.81 km)</div>
+
+  <div class="controls">
     <select id="mode">
       <option value="loop">🔄 Puhas ring</option>
       <option value="outback">↔️ Edasi-tagasi</option>
@@ -48,30 +111,51 @@
       <option value="270">⬅️ Läände</option>
     </select>
   </div>
-  <button class="btn" id="b" onclick="go()">⚡ Joonista teekond</button>
+
+  <button class="main-btn" id="b" onclick="go()">⚡ Joonista teekond</button>
 </div>
 
 <div id="map"></div>
+
 <div id="bar">
-  <div id="res" style="font-weight:700;"></div>
+  <div id="res" style="font-weight:800;font-size:1rem;"></div>
   <div id="sub" style="font-size:0.8rem;color:#94a3b8;margin-top:2px;"></div>
   <div class="bar-btns">
-    <button class="retry" onclick="nextDir()">🎲 Uus suund</button>
-    <button class="walk-btn" id="walkBtn" onclick="toggleWalk()">🧭 Kõnni siin kaardil</button>
-    <a id="gm" class="gm" target="_blank">🗺️ Google Maps</a>
+    <button class="b-btn retry" onclick="nextDir()">🎲 Uus</button>
+    <button class="b-btn walk-btn" id="walkBtn" onclick="toggleWalk()">🧭 Kõnni kaardil</button>
+    <a id="gm" class="b-btn gm" target="_blank">🗺️ Maps</a>
   </div>
 </div>
 
 <script>
-let pos = [61.1715, 25.5415], distM = 1809, ang = 135, layer, extraMks = [];
+let pos = [61.1715, 25.5415], distM = 1809, ang = 135, glowLayer, layer, extraMks = [];
 let watchId = null, liveDot = null, liveCircle = null;
 if (localStorage.sr_lat) pos = [Number(localStorage.sr_lat), Number(localStorage.sr_lon)];
 
-const map = L.map('map').setView(pos, 15);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+const map = L.map('map', { zoomControl: false }).setView(pos, 15);
 
-const mk = L.marker(pos, { draggable: true }).addTo(map)
-  .bindPopup("<b>Algus ja lõpp</b><br>Lohista või kliki kaardile!").openPopup();
+// 4 moodsat kaardistiili
+const styles = [
+  { name: "🎨 Tume", url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" },
+  { name: "🎨 Hele", url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" },
+  { name: "🎨 Satelliit", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" },
+  { name: "🎨 Radadega", url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }
+];
+let styleIdx = Number(localStorage.sr_style) || 0;
+let tileLayer = L.tileLayer(styles[styleIdx].url, { maxZoom: 19 }).addTo(map);
+document.getElementById('styleBtn').innerText = styles[styleIdx].name;
+
+function cycleStyle() {
+  styleIdx = (styleIdx + 1) % styles.length;
+  localStorage.sr_style = styleIdx;
+  map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(styles[styleIdx].url, { maxZoom: 19 }).addTo(map);
+  document.getElementById('styleBtn').innerText = styles[styleIdx].name;
+}
+
+// Moodne alguspunkti marker
+const pinIcon = L.divIcon({ className: '', html: '<div class="start-pin"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
+const mk = L.marker(pos, { draggable: true, icon: pinIcon }).addTo(map);
 
 function setPos(lat, lon) {
   pos = [lat, lon]; mk.setLatLng(pos);
@@ -83,41 +167,35 @@ mk.on('dragend', e => { let p = e.target.getLatLng(); setPos(p.lat, p.lng); });
 function calc() {
   let miss = Math.max(0, (goal.value - cur.value) * 1.05);
   distM = Math.round(miss * (str.value / 100));
-  info.innerText = `Vaja (+5% varuga): ${Math.round(miss)} sammu (~${(distM/1000).toFixed(2)} km)`;
+  info.innerHTML = `Vaja (+5% varuga): <b>${Math.round(miss)} sammu</b> (~${(distM/1000).toFixed(2)} km)`;
 }
 
 function gps() {
   navigator.geolocation.getCurrentPosition(p => {
     setPos(p.coords.latitude, p.coords.longitude);
     map.setView(pos, 16);
-  }, () => alert("GPS ei vastanud, kliki kaardile!"));
+  }, () => alert("GPS ei vastanud, puuduta kaarti oma asukohas!"));
 }
 
-// Reaalajas kõndimise jälgimine otse meie kaardil
 function toggleWalk() {
   if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
+    navigator.geolocation.clearWatch(watchId); watchId = null;
     if (liveDot) map.removeLayer(liveDot);
     if (liveCircle) map.removeLayer(liveCircle);
-    walkBtn.innerText = "🧭 Kõnni siin kaardil";
-    walkBtn.style.background = "#10b981";
+    walkBtn.innerText = "🧭 Kõnni kaardil"; walkBtn.style.background = "#10b981";
     return;
   }
-  if (!navigator.geolocation) return alert("GPS pole toetatud!");
-  walkBtn.innerText = "⏹️ Lõpeta jälgimine";
-  walkBtn.style.background = "#f59e0b";
+  walkBtn.innerText = "⏹️ Lõpeta"; walkBtn.style.background = "#f59e0b";
   watchId = navigator.geolocation.watchPosition(p => {
-    let curPos = [p.coords.latitude, p.coords.longitude];
+    let c = [p.coords.latitude, p.coords.longitude];
     if (!liveDot) {
-      liveCircle = L.circle(curPos, { radius: p.coords.accuracy || 15, color: '#3b82f6', fillOpacity: 0.15, weight: 1 }).addTo(map);
-      liveDot = L.circleMarker(curPos, { radius: 8, fillColor: '#3b82f6', color: '#fff', weight: 3, fillOpacity: 1 }).addTo(map);
+      liveCircle = L.circle(c, { radius: p.coords.accuracy || 15, color: '#3b82f6', fillOpacity: 0.2, weight: 1 }).addTo(map);
+      liveDot = L.circleMarker(c, { radius: 8, fillColor: '#3b82f6', color: '#fff', weight: 3, fillOpacity: 1 }).addTo(map);
     } else {
-      liveDot.setLatLng(curPos);
-      liveCircle.setLatLng(curPos).setRadius(p.coords.accuracy || 15);
+      liveDot.setLatLng(c); liveCircle.setLatLng(c).setRadius(p.coords.accuracy || 15);
     }
-    map.panTo(curPos);
-  }, () => alert("Ei saa GPS signaali kätte!"), { enableHighAccuracy: true, maximumAge: 2000 });
+    map.panTo(c);
+  }, () => alert("GPS signaal puudub!"), { enableHighAccuracy: true });
 }
 
 function pt(lat, lon, d, a) {
@@ -136,7 +214,6 @@ function pathLen(pts) {
   return s;
 }
 
-// Tugevdatud lõikur: eemaldab nii tupikud kui ka väikesed kõrvaltänava jõnksud (kuni 32m laiused paunad)
 function cleanSpikes(rawCoords) {
   let pts = [rawCoords[0]];
   for (let i = 1; i < rawCoords.length; i++) {
@@ -159,12 +236,9 @@ function cleanSpikes(rawCoords) {
     for (let i = 0; i < pts.length - 4 && !changed; i++) {
       for (let j = pts.length - 1; j > i + 3; j--) {
         if (cum[i] < 50 && (tot - cum[j]) < 50) continue;
-        let sub = cum[j] - cum[i];
-        let direct = mDist(pts[i], pts[j]);
-        // Kui teekond teeb pauna, mis tuleb samasse kohta (<32m) tagasi, lõikame pauna maha
+        let sub = cum[j] - cum[i], direct = mDist(pts[i], pts[j]);
         if (sub > 25 && sub < tot * 0.55 && direct < 32 && sub > direct * 2.4) {
-          pts.splice(i + 1, j - i);
-          changed = true; break;
+          pts.splice(i + 1, j - i); changed = true; break;
         }
       }
     }
@@ -172,7 +246,6 @@ function cleanSpikes(rawCoords) {
   return pts;
 }
 
-// Võtab puhastatud ringilt võrdsete vahemaade tagant N punkti
 function sampleByDist(pts, count) {
   let cum = [0];
   for (let i = 1; i < pts.length; i++) cum[i] = cum[i - 1] + mDist(pts[i - 1], pts[i]);
@@ -193,16 +266,19 @@ async function askOsrm(pts) {
   return d;
 }
 
-function nextDir() {
-  dir.value = 'r';
-  go();
+function drawGlowingRoute(coords) {
+  if (glowLayer) map.removeLayer(glowLayer);
+  if (layer) map.removeLayer(layer);
+  glowLayer = L.polyline(coords, { color: '#10b981', weight: 14, opacity: 0.25 }).addTo(map);
+  layer = L.polyline(coords, { color: '#34d399', weight: 5, opacity: 1 }).addTo(map);
+  map.fitBounds(layer.getBounds(), { paddingTopLeft: [20, 210], paddingBottomRight: [20, 120] });
 }
+
+function nextDir() { dir.value = 'r'; go(); }
 
 async function go() {
   b.disabled = true; b.innerText = "⏳ Otsin parimat teed...";
-  if (layer) map.removeLayer(layer);
-  extraMks.forEach(m => map.removeLayer(m));
-  extraMks = [];
+  extraMks.forEach(m => map.removeLayer(m)); extraMks = [];
 
   try {
     ang = dir.value === 'r' ? (ang + 65) % 360 : Number(dir.value);
@@ -218,14 +294,10 @@ async function go() {
         half = half * (distM / (realD || distM));
       }
       let coords = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-      layer = L.polyline(coords, { color: '#10b981', weight: 6 }).addTo(map);
-      let tMk = L.circleMarker(turnPt, { radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 })
-        .addTo(map).bindPopup("🔄 <b>Pöördepunkt!</b><br>Keera siin ots ringi.").openPopup();
-      extraMks.push(tMk);
-      map.fitBounds(layer.getBounds(), { padding: [30, 30] });
+      drawGlowingRoute(coords);
+      extraMks.push(L.circleMarker(turnPt, { radius: 8, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(map));
 
-      let totalD = d.routes[0].distance;
-      let steps = Math.round(totalD / (str.value / 100));
+      let totalD = d.routes[0].distance, steps = Math.round(totalD / (str.value / 100));
       res.innerText = `Edasi-tagasi: +${steps} sammu (${(totalD/1000).toFixed(2)} km)`;
       sub.innerText = `Pöördepunkt ${(totalD/2000).toFixed(2)} km kaugusel • ~${Math.round(totalD/80)} min`;
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${turnPt[0]},${turnPt[1]}&travelmode=walking`;
@@ -239,30 +311,20 @@ async function go() {
         let raw = d.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
         clean = cleanSpikes(raw);
         bestLen = pathLen(clean);
-
-        if (bestLen < distM * 0.35) {
-          ang = (ang + 75) % 360;
-          continue;
-        }
+        if (bestLen < distM * 0.35) { ang = (ang + 75) % 360; continue; }
         if (Math.abs(bestLen - distM) / distM <= 0.14) break;
         diam = diam * (distM / bestLen);
       }
 
-      layer = L.polyline(clean, { color: '#10b981', weight: 6 }).addTo(map);
-
-      // Lisame kaardile suunanumbrid 1, 2, 3, et näha mis pidi ring jookseb
+      drawGlowingRoute(clean);
       sampleByDist(clean, 3).forEach((p, idx) => {
-        let ic = L.divIcon({ className: 'num-icon', html: `${idx + 1}`, iconSize: [24, 24] });
+        let ic = L.divIcon({ className: 'num-icon', html: `${idx + 1}`, iconSize: [22, 22] });
         extraMks.push(L.marker(p, { icon: ic }).addTo(map));
       });
-
-      map.fitBounds(layer.getBounds(), { padding: [30, 30] });
 
       let steps = Math.round(bestLen / (str.value / 100));
       res.innerText = `Puhas ring: +${steps} sammu (${(bestLen/1000).toFixed(2)} km)`;
       sub.innerText = `Järgi numbreid 1 → 2 → 3 • ~${Math.round(bestLen/80)} min kõndi`;
-
-      // Saadame Google Mapsile 7 tihedat vahepunkti, et ta ei saaks teekonda ära lõhkuda
       let wps = sampleByDist(clean, 7).map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join('|');
       gm.href = `https://www.google.com/maps/dir/?api=1&origin=${pos[0]},${pos[1]}&destination=${pos[0]},${pos[1]}&waypoints=${wps}&travelmode=walking`;
     }
